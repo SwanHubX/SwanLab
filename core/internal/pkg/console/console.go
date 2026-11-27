@@ -4,7 +4,6 @@
 //   - debug:   loguru 风格，灰色；仅 SWANLAB_DEBUG=true 时输出
 //   - warning: loguru 风格，黄色
 //   - error:   loguru 风格，红色
-//   - trace:   error 变体，额外记录 goroutine 栈
 //
 // SWANLAB_DEBUG=true 时，所有级别都会同步镜像到诊断日志文件（经 log 子包）。
 package console
@@ -13,7 +12,6 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -63,7 +61,7 @@ func Debug(args ...any) {
 		return
 	}
 	msg := joinArgs(args)
-	log.Debug(emit("debug", ansiGrey, msg, msg, true))
+	log.Debug(emit("debug", ansiGrey, msg, true))
 }
 
 // Debugf 是 Debug 的格式化变体。
@@ -74,7 +72,7 @@ func Info(args ...any) {
 	msg := joinArgs(args)
 	writeTTY(paint(name, ansiBlue+ansiBold) + ":" + " " + msg)
 	if debugEnabled {
-		log.Info(emit("info", "", msg, msg, false))
+		log.Info(emit("info", "", msg, false))
 	}
 }
 
@@ -84,7 +82,7 @@ func Infof(format string, args ...any) { Info(fmt.Sprintf(format, args...)) }
 // Warning 输出 loguru 风格的警告（黄色）。
 func Warning(args ...any) {
 	msg := joinArgs(args)
-	log.Warning(emit("warning", ansiYellow, msg, msg, true))
+	log.Warning(emit("warning", ansiYellow, msg, true))
 }
 
 // Warningf 是 Warning 的格式化变体。
@@ -93,47 +91,27 @@ func Warningf(format string, args ...any) { Warning(fmt.Sprintf(format, args...)
 // Error 输出 loguru 风格的错误（红色）。
 func Error(args ...any) {
 	msg := joinArgs(args)
-	log.Error(emit("error", ansiRed, msg, msg, true))
+	log.Error(emit("error", ansiRed, msg, true))
 }
 
 // Errorf 是 Error 的格式化变体。
 func Errorf(format string, args ...any) { Error(fmt.Sprintf(format, args...)) }
 
-// Trace 记录 err 及其 goroutine 栈。终端只显示短消息，诊断日志文件额外记录完整栈。
-// err 为 nil 时无操作。这是 Python console.trace（读取 sys.exc_info）的 Go 适配版。
-func Trace(err error, args ...any) {
-	if err == nil {
-		return
-	}
-	prefix := joinArgs(args)
-	stack := strings.TrimSpace(string(debug.Stack()))
-	// 与 Python 回溯不同，debug.Stack() 不含错误信息，因此此处显式前置，
-	// 保证文件记录自包含（终端仅显示短消息）
-	shortMsg := err.Error()
-	fileMsg := err.Error() + "\n" + stack
-	if prefix != "" {
-		shortMsg = prefix + ": " + shortMsg
-		fileMsg = prefix + ": " + fileMsg
-	}
-	log.Error(emit("error", ansiRed, shortMsg, fileMsg, true))
-}
-
 // emit 构建并（可选）打印 loguru 风格日志行，返回纯文本（供诊断日志文件使用）。
-// consoleMsg 用于终端显示，fileMsg 用于文件持久化（仅 Trace 时二者不同）。
-func emit(level, color, consoleMsg, fileMsg string, writeToTTY bool) string {
+func emit(level, color, msg string, writeToTTY bool) string {
 	ts := now()
 	loc := callerLocation()
 	lvl := fmt.Sprintf("%-8s", strings.ToUpper(level))
-	plain := ts + " | " + lvl + " | " + loc + " - " + fileMsg
+	plain := ts + " | " + lvl + " | " + loc + " - " + msg
 	if !writeToTTY {
 		return plain
 	}
 	if colorEnabled {
 		sep := color + ansiDim
 		writeTTY(paint(ts, color) + paint(" | ", sep) + paint(lvl, color+ansiBold) +
-			paint(" | ", sep) + paint(loc, color) + paint(" - ", sep) + consoleMsg)
+			paint(" | ", sep) + paint(loc, color) + paint(" - ", sep) + msg)
 	} else {
-		writeTTY(ts + " | " + lvl + " | " + loc + " - " + consoleMsg)
+		writeTTY(ts + " | " + lvl + " | " + loc + " - " + msg)
 	}
 	return plain
 }

@@ -6,7 +6,7 @@
 
 对于Go部分，你需要安装：
 
-1. 前往页面安装protobuf 35.1: https://github.com/protocolbuffers/protobuf/releases/tag/v35.1，因为这是
+1. 前往页面安装protobuf 35.1: https://github.com/protocolbuffers/protobuf/releases/tag/v35.1，与仓库内生成产物版本保持一致
 2. go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
 3. go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.1
 
@@ -115,10 +115,12 @@ def generate_go_protos(proto_dir: Path, output_dir: Path):
                 print(
                     "\nTip: Install Go plugins via:\n  go install google.golang.org/protobuf/cmd/protoc-gen-go@latest"
                 )
+            sys.exit(1)
         else:
             print("Go protos generated successfully.")
     except FileNotFoundError:
         print("Error: 'protoc' command not found. Please install protoc first.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

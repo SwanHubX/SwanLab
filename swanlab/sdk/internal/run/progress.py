@@ -18,9 +18,10 @@ from rich.table import Table
 from rich.text import Text
 
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import GetOperationStatsResponse
-from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState, OperationStats
+from swanlab.proto.swanlab.operation.v1.operation_pb2 import CloudState, CoreState, OperationStats
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.run.fmt import fmt_bytes, fmt_items, fmt_rate
+from swanlab.sdk.protocol import is_terminal_stats_error
 
 _T = TypeVar("_T")
 
@@ -28,6 +29,8 @@ _T = TypeVar("_T")
 _BAR_WIDTH = 24
 _MAX_FILES = 5
 _POLL_INTERVAL = 0.25
+# 连续 stats 失败上限：core 崩溃后 RPC 会一直失败，无上限的轮询会让 sync 永久挂住。
+_MAX_CONSECUTIVE_STATS_FAILURES = 10
 
 
 # ── Unit helpers ──────────────────────────────────────────────
@@ -51,7 +54,17 @@ def _resolve_progress(stats: OperationStats, unit: str) -> tuple[int, int]:
     return stats.total_records, stats.uploaded_records
 
 
+def _is_waiting_cloud(stats: OperationStats) -> bool:
+    return stats.HasField("cloud") and stats.cloud.state == CloudState.CLOUD_STATE_PENDING
+
+
+def _is_cloud_failed(stats: OperationStats) -> bool:
+    return stats.HasField("cloud") and stats.cloud.state == CloudState.CLOUD_STATE_FAILED
+
+
 def _should_show(stats: OperationStats, unit: str) -> bool:
+    if _is_waiting_cloud(stats):
+        return True
     unit = _resolve_unit(stats, unit)
     total, done = _resolve_progress(stats, unit)
     return total > 0 or done > 0
@@ -60,10 +73,18 @@ def _should_show(stats: OperationStats, unit: str) -> bool:
 # ── Rich renderable ──────────────────────────────────────────
 
 
+def _render_waiting_cloud(table: Table, stats: OperationStats) -> None:
+    left = Spinner("dots", Text("Reconnecting to SwanLab online service...", "bold"))
+    right = Text(stats.cloud.error, style="dim") if stats.cloud.error else Text("")
+    table.add_row(left, Text(""), right)
+
+
 def _build_renderable(stats: OperationStats, unit: str) -> Table:
     unit = _resolve_unit(stats, unit)
     table = Table.grid(padding=(0, 2))
-    if unit == "bytes" and (stats.total_number > 0 or stats.total_size > 0):
+    if _is_waiting_cloud(stats):
+        _render_waiting_cloud(table, stats)
+    elif unit == "bytes" and (stats.total_number > 0 or stats.total_size > 0):
         _render_files(table, stats)
     else:
         _render_records(table, stats, unit)
@@ -124,7 +145,20 @@ def _append_rate(text: Text, rate: float) -> None:
 # ── Summary printer ──────────────────────────────────────────
 
 
-def _print_summary(stats: OperationStats, unit: str, finished: bool, interrupted: bool = False) -> None:
+def _print_summary(
+    stats: OperationStats, unit: str, finished: bool, interrupted: bool = False, timed_out: bool = False
+) -> None:
+    if _is_cloud_failed(stats):
+        return
+    if interrupted and _is_waiting_cloud(stats):
+        console.info("SwanLab online service reconnection still in progress; continuing in background.")
+        return
+    if _is_waiting_cloud(stats):
+        if timed_out:
+            console.info("SwanLab online service reconnection timed out.")
+        else:
+            console.info("SwanLab online service reconnection is still in progress.")
+        return
     unit = _resolve_unit(stats, unit)
     is_files = unit == "bytes" and (stats.total_number > 0 or stats.total_size > 0)
 
@@ -142,7 +176,8 @@ def _print_summary(stats: OperationStats, unit: str, finished: bool, interrupted
         if finished and done >= total:
             msg = f"Upload complete: {n} file(s) ({fmt_bytes(done)})"
         elif not finished:
-            msg = f"Upload timeout: {n}/{nt} files ({fmt_bytes(done)}/{fmt_bytes(total)})"
+            label = "Upload timeout" if timed_out else "Upload incomplete"
+            msg = f"{label}: {n}/{nt} files ({fmt_bytes(done)}/{fmt_bytes(total)})"
         else:
             msg = f"Upload finished: {n}/{nt} files ({fmt_bytes(done)}/{fmt_bytes(total)})"
     else:
@@ -150,7 +185,8 @@ def _print_summary(stats: OperationStats, unit: str, finished: bool, interrupted
         if finished and done >= total:
             msg = f"Upload complete: {fmt_items(done, unit)}"
         elif not finished:
-            msg = f"Upload timeout: {fmt_items(done, unit)}/{fmt_items(total, unit)}"
+            label = "Upload timeout" if timed_out else "Upload incomplete"
+            msg = f"{label}: {fmt_items(done, unit)}/{fmt_items(total, unit)}"
         else:
             msg = f"Upload finished: {fmt_items(done, unit)}/{fmt_items(total, unit)}"
 
@@ -201,9 +237,16 @@ class ProgressDisplay:
         if self._live is not None:
             self._live.stop()
 
-    def print_summary(self, stats: OperationStats, unit: str, finished: bool, interrupted: bool = False) -> None:
+    def print_summary(
+        self,
+        stats: OperationStats,
+        unit: str,
+        finished: bool,
+        interrupted: bool = False,
+        timed_out: bool = False,
+    ) -> None:
         if self._has_shown:
-            _print_summary(stats, unit, finished, interrupted)
+            _print_summary(stats, unit, finished, interrupted, timed_out)
 
 
 # ── Progress waiter ──────────────────────────────────────────
@@ -214,15 +257,23 @@ def run_with_progress(
     blocking_fn: Callable[[], _T],
     timeout: Optional[float] = None,
     unit: str = "auto",
+    on_stats: Optional[Callable[[GetOperationStatsResponse], object]] = None,
 ) -> _T:
     """在上传完成期间轮询*stats_fn*，随后调用*blocking_fn*。显示一个Rich实时进度区域，该区域每次轮询间隔都会更新。
+    若提供了*on_stats*，每次收到*stats_fn*响应（包括初始检查、每次轮询及退出前最后一次拉取）都会将其传入回调。
     当跟踪器报告``CORE_STATE_FINISHED``或*timeout*超时时，循环退出。
     显示关闭后（例如加入传输并与后端确认），*blocking_fn*会被调用一次。
     """
     # 1. 进入时请求一次，如果发现stats不存在(这通常是非online模式)则直接返回，避免不必要的进度显示和等待
     resp = stats_fn()
+    if on_stats is not None:
+        on_stats(resp)
     if not resp.success:
-        console.warning("Failed to get initial op stats:", resp.message)
+        if is_terminal_stats_error(resp):
+            # session 已结束，继续轮询只会刷告警；直接进入收尾
+            console.debug(f"Core session is already gone; skipping upload progress: {resp.message}", write_to_tty=False)
+        else:
+            console.warning("Failed to get initial op stats:", resp.message)
         return blocking_fn()
     elif not resp.HasField("stats"):
         return blocking_fn()
@@ -236,30 +287,61 @@ def run_with_progress(
     deadline = time.monotonic() + timeout if timeout is not None else None
     finished = False
     interrupted = False
+    timed_out = False
+    terminal = False
+    failures = 0
+    last_stats: Optional[OperationStats] = resp.stats
 
     with progress_display() as display:
         try:
             while True:
+                # deadline 必须先于请求检查，否则 stats 持续失败时会跳过超时分支。
+                if deadline is not None and time.monotonic() >= deadline:
+                    timed_out = True
+                    break
                 resp = stats_fn()
+                if on_stats is not None:
+                    on_stats(resp)
                 if resp.success:
+                    failures = 0
                     stats = resp.stats
+                    last_stats = stats
                     display.update(stats, unit)
                     if stats.state == CoreState.CORE_STATE_FINISHED:
                         finished = True
                         break
-                    if deadline is not None and time.monotonic() >= deadline:
-                        break
                 else:
+                    if is_terminal_stats_error(resp):
+                        terminal = True
+                        console.debug(f"Core session ended during upload progress: {resp.message}", write_to_tty=False)
+                        break
+                    failures += 1
                     console.warning("Failed to get op stats:", resp.message)
+                    if failures >= _MAX_CONSECUTIVE_STATS_FAILURES:
+                        terminal = True
+                        console.debug(
+                            f"Giving up upload progress after {failures} consecutive stats failures: {resp.message}",
+                            write_to_tty=False,
+                        )
+                        break
                 time.sleep(_POLL_INTERVAL)
         except KeyboardInterrupt:
             interrupted = True
-            console.info("Upload still in progress... Press", Text("Ctrl+C", "bold"), "again to force quit.")
+            if last_stats is not None and _is_waiting_cloud(last_stats):
+                console.info(
+                    "SwanLab online service reconnection still in progress... Press",
+                    Text("Ctrl+C", "bold"),
+                    "again to force quit.",
+                )
+            else:
+                console.info("Upload still in progress... Press", Text("Ctrl+C", "bold"), "again to force quit.")
 
     # 3. 进度显示结束后再请求一次，获取最终状态并打印总结
     resp = stats_fn()
+    if on_stats is not None:
+        on_stats(resp)
     if resp.success and resp.HasField("stats"):
-        display.print_summary(resp.stats, unit, finished, interrupted)
-    elif not resp.success:
+        display.print_summary(resp.stats, unit, finished, interrupted, timed_out)
+    elif not resp.success and not terminal and not is_terminal_stats_error(resp):
         console.warning("Failed to get final op stats:", resp.message)
     return blocking_fn()

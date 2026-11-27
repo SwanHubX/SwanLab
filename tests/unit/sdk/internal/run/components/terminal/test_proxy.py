@@ -4,6 +4,7 @@ from unittest.mock import Mock
 import pytest
 
 from swanlab.sdk.internal.bus import EmitterProtocol
+from swanlab.sdk.internal.run.components import terminal as terminal_module
 from swanlab.sdk.internal.run.components.terminal import TerminalProxy
 from swanlab.sdk.internal.run.components.terminal.emulator import Char, TerminalEmulator
 
@@ -95,3 +96,18 @@ def test_default_window_amortizes_internal_flushes(monkeypatch):
 
     proxy._flush()
     assert emitted_lines(proxy) == ["sample"] * line_count
+
+
+def test_bounded_queue_drops_oldest_without_blocking(monkeypatch):
+    """队列有界：消费跟不上时丢最旧的块，写入方永不阻塞。"""
+    monkeypatch.setattr(terminal_module, "_QUEUE_MAXSIZE", 4)
+    proxy = TerminalProxy(Mock(spec=EmitterProtocol), "all", max_log_length=1024, init_pid=os.getpid())
+
+    for i in range(50):
+        proxy._on_stdout_write(f"line {i}\n")
+        proxy._on_stderr_write(f"err {i}\n")
+
+    stdout_items = list(proxy._stdout_queue.queue)
+    stderr_items = list(proxy._stderr_queue.queue)
+    assert stdout_items == [f"line {i}\n" for i in range(46, 50)]
+    assert stderr_items == [f"err {i}\n" for i in range(46, 50)]

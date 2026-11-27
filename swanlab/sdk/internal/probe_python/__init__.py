@@ -11,7 +11,7 @@ from typing import List, Optional
 
 from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest, GetMetadataSnapshotResponse
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
-from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg import console, safe
 from swanlab.sdk.internal.probe_python.context import ProbeContext
 from swanlab.sdk.internal.probe_python.environment import conda, git, requirements, runtime, swanlab
 from swanlab.sdk.internal.probe_python.hardware_vendor import ACCELERATOR_REGISTRY, CPU, Apple, Memory
@@ -28,7 +28,7 @@ class ProbePython(ProbeProtocol):
         self._core: Optional[CoreProtocol] = core
         # self._monitor is not None 作为硬件监控是否开启的标记
         self._monitor: Optional[Monitor] = None
-        self._metadta_snapshot: Optional[MetadataSnapshot] = None
+        self._metadata_snapshot: Optional[MetadataSnapshot] = None
 
     def _start_when_enabled(self, start_request: DeliverProbeStartRequest):
         """
@@ -75,7 +75,7 @@ class ProbePython(ProbeProtocol):
             runtime=runtime_snapshot,
             swanlab=swanlab_snapshot,
         )
-        self._metadta_snapshot = metadata
+        self._metadata_snapshot = metadata
         system_shim = SystemShim.from_snapshot(metadata, platform=sys.platform)
         # 如果硬采集被设置为False，删除硬件信息
         if not ctx.config.hardware:
@@ -120,24 +120,28 @@ class ProbePython(ProbeProtocol):
                     )
                 )
             if payload:
-                self._core.upsert_saves(payload)
+                # core 可能把 upsert 失败抛给调用方；探针元数据是尽力而为
+                with safe.block(message="Error when upserting probe metadata"):
+                    self._core.upsert_saves(payload)
             else:
                 console.debug(
                     "ProbePython has no metadata to send; metadata will be collected for snapshots only and will not be sent."
                 )
             # 5. 设置硬件监控
             if ctx.config.monitor:
-                if (hm := Monitor(system_shim, self._core).start(ctx)) is not None:
-                    self._monitor = hm
+                # 采集器初始化会调用外部命令（带超时），失败或超时只影响监控，不影响 probe 整体
+                with safe.block(message="Error starting hardware monitor"):
+                    if (hm := Monitor(system_shim, self._core).start(ctx)) is not None:
+                        self._monitor = hm
         else:
             console.debug(
                 "ProbePython has no core attached; metadata will be collected for snapshots only and will not be sent."
             )
 
     def _get_metadata_snapshot_when_enabled(self) -> GetMetadataSnapshotResponse:
-        if self._metadta_snapshot is None:
+        if self._metadata_snapshot is None:
             return GetMetadataSnapshotResponse(success=False, message="Metadata snapshot is not available.")
-        return GetMetadataSnapshotResponse(success=True, metadata=self._metadta_snapshot.to_proto())
+        return GetMetadataSnapshotResponse(success=True, metadata=self._metadata_snapshot.to_proto())
 
     def _finish_when_enabled(self):
         if self._monitor is not None:

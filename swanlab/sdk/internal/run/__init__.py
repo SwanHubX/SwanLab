@@ -13,6 +13,7 @@ import glob
 import signal
 import sys
 import threading
+import time
 import traceback
 from concurrent.futures import Future
 from functools import cached_property, wraps
@@ -26,14 +27,22 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     DeliverRunFinishRequest,
 )
 from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest
+from swanlab.proto.swanlab.operation.v1.operation_pb2 import (
+    CLOUD_STATE_ATTACHED,
+    CLOUD_STATE_FAILED,
+    CLOUD_STATE_PENDING,
+    CLOUD_STATE_UNSPECIFIED,
+    OperationStats,
+)
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord
 from swanlab.sdk.internal.bus import FileSaveEvent, MetricDefineEvent, MetricLogEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.pkg import adapter, console, fork, helper, safe
+from swanlab.sdk.internal.pkg import adapter, console, fork, helper, safe, throttle, timer
 from swanlab.sdk.internal.run import greeting
 from swanlab.sdk.internal.run.components import Components
 from swanlab.sdk.internal.run.components.config import Config
+from swanlab.sdk.internal.run.finish_retry import retry_finish_call
 from swanlab.sdk.internal.run.progress import run_with_progress
 from swanlab.sdk.internal.run.transforms import (
     Audio,
@@ -65,6 +74,11 @@ from swanlab.sdk.typings.run.transforms.video import VideoDatasType, VideoFormat
 from . import fmt
 
 __all__ = ["Run", "has_run", "get_run", "set_run", "clear_run"]
+
+
+def _in_main_thread() -> bool:
+    """当前线程是否为主线程。signal.signal() 只允许在主线程调用。"""
+    return threading.current_thread() is threading.main_thread()
 
 
 def with_api(cmd: str, must_alive: bool = True):
@@ -127,12 +141,35 @@ class Run:
         >>> swanlab.finish()
     """
 
-    def __init__(self, ctx: RunContext, path: Optional[str] = None):
+    # 类级默认值：保证仅通过 __new__ 构造的测试替身也能安全读取云端状态字段
+    _STATUS_POLL_INTERVAL: float = 2.0
+    _UPLOAD_WARN_INTERVAL: float = 30.0
+    _path: Optional[str] = None
+    _cloud_state: int = CLOUD_STATE_UNSPECIFIED
+    _cloud_error: Optional[str] = None
+    _fallback_error: Optional[str] = None
+    _cloud_link_printed: bool = False
+    _cloud_failure_reported: bool = False
+    _upload_degraded: bool = False
+    _upload_warn_throttle: Optional[throttle.WarningThrottle] = None
+    _status_timer: Optional[timer.Timer] = None
+
+    def __init__(self, ctx: RunContext, path: Optional[str] = None, *, fallback_error: Optional[str] = None):
         # 1. 基础状态、组件准备
         self._ctx = ctx
         self._is_main_thread = threading.current_thread() is threading.main_thread()
         # 运行实验路径，/:username/:project_name/:run_id
         self._path = path
+        self._cloud_state = CLOUD_STATE_ATTACHED if path else CLOUD_STATE_UNSPECIFIED
+        self._cloud_error = None
+        self._fallback_error = fallback_error
+        self._cloud_link_printed = bool(path)
+        self._cloud_failure_reported = False
+        self._upload_degraded = False
+        self._upload_warn_throttle = throttle.WarningThrottle(
+            self._UPLOAD_WARN_INTERVAL, clock=lambda: time.monotonic()
+        )
+        self._status_timer = None
         self._state: Union[FinishType, Literal["running"]] = "running"
         self._init_pid = fork.current_pid()
         # 外部API锁，防止并发调用
@@ -147,47 +184,65 @@ class Run:
         self._core = self._ctx.core
         self._probe = self._ctx.probe
         # 2. 注册副作用
-        # 设置全局运行实例
-        set_run(self)
-        # TODO: swanlab-core 上线后，此处注册 Run 级别的 fork 重连回调
-        # 注册退出钩子
-        self._sys_origin_excepthook = sys.excepthook
-        atexit.register(self._handle_atexit)
-        sys.excepthook = self._handle_except
-        # 注册 SIGINT handler，确保 Ctrl+C 能可靠地将实验标记为 aborted，sys.excepthook 在主线程阻塞于 C 扩展时可能无法触发
-        # signal() 仅允许在主线程调用；Ray actor 等非主线程环境下跳过注册，
-        # atexit / excepthook 钩子仍然生效
-        self._original_sigint_handler = signal.getsignal(signal.SIGINT)
-        if self._is_main_thread:
-            signal.signal(signal.SIGINT, self._handle_sigint)
+        self._atexit_registered = False
+        self._excepthook_installed = False
+        self._sigint_installed = False
+        self._fork_registered = False
+        self._components_started = False
+        self._probe_started = False
+        try:
+            # 设置全局运行实例
+            set_run(self)
+            # fork 子进程替换为不持有父进程资源的 Core 占位
+            fork.register(self._handle_fork)
+            self._fork_registered = True
+            # 注册退出钩子
+            self._sys_origin_excepthook = sys.excepthook
+            atexit.register(self._handle_atexit)
+            self._atexit_registered = True
+            sys.excepthook = self._handle_except
+            self._excepthook_installed = True
+            # 注册 SIGINT handler，确保 Ctrl+C 能可靠地将实验标记为 aborted，sys.excepthook 在主线程阻塞于 C 扩展时可能无法触发
+            # signal() 仅允许在主线程调用；Ray actor 等非主线程环境下跳过注册，
+            # atexit / excepthook 钩子仍然生效
+            self._original_sigint_handler = signal.getsignal(signal.SIGINT)
+            if self._is_main_thread:
+                signal.signal(signal.SIGINT, self._handle_sigint)
+                self._sigint_installed = True
 
-        # 3. 启动组件 + 初始化日志
-        # 回调的path在path为空的时候自动生成一个/:project_name/:run_id，否则使用path
-        run_settings = ctx.config.settings
-        assert run_settings.project.name, "project name is required when init run"
-        assert run_settings.run.id, "run id is required when init run"
-        run_path = path or f"/{run_settings.project.name}/{run_settings.run.id}"
-        callback_settings = run_settings.model_copy(deep=True)
-        self._callbacker.on_run_initialized(self._ctx.run_dir, run_path, settings=callback_settings)
-        # 启动组件
-        self._components.start()
-        # 启动硬件监控探针
-        # skip_store 下不传递 run_dir，probe 负责将 metadata 信息注入 SaveRecord.payload
-        probe_run_dir = None if run_settings.core.skip_store else self._ctx.run_dir
-        start_request = DeliverProbeStartRequest(
-            probe_settings=run_settings.to_probe_proto(
-                run_id=run_settings.run.id,
-                run_dir=probe_run_dir,
-                global_system_step=self._ctx.global_system_step,
+            # 3. 启动组件 + 初始化日志
+            # 回调的path在path为空的时候自动生成一个/:project_name/:run_id，否则使用path
+            run_settings = ctx.config.settings
+            assert run_settings.project.name, "project name is required when init run"
+            assert run_settings.run.id, "run id is required when init run"
+            run_path = path or f"/{run_settings.project.name}/{run_settings.run.id}"
+            callback_settings = run_settings.model_copy(deep=True)
+            self._callbacker.on_run_initialized(self._ctx.run_dir, run_path, settings=callback_settings)
+            # 启动组件（先置位，确保 start 中途失败也能回滚已创建的线程）
+            self._components_started = True
+            self._components.start()
+            # 启动硬件监控探针
+            # skip_store 下不传递 run_dir，probe 负责将 metadata 信息注入 SaveRecord.payload
+            probe_run_dir = None if run_settings.core.skip_store else self._ctx.run_dir
+            start_request = DeliverProbeStartRequest(
+                probe_settings=run_settings.to_probe_proto(
+                    run_id=run_settings.run.id,
+                    run_dir=probe_run_dir,
+                    global_system_step=self._ctx.global_system_step,
+                )
             )
-        )
-        self._probe.deliver_probe_start(start_request)
-        # skip_store 下没有 debug 目录，诊断日志只输出终端
-        if self.mode == "disabled" or run_settings.core.skip_store:
-            console.init(bind_to=None)
-        else:
-            console.init(bind_to=self._ctx.debug_dir)
-        greeting.welcome(self._ctx, self)
+            self._probe_started = True
+            self._probe.deliver_probe_start(start_request)
+            # skip_store 下没有 debug 目录，诊断日志只输出终端
+            if self.mode == "disabled" or run_settings.core.skip_store:
+                console.init(bind_to=None)
+            else:
+                console.init(bind_to=self._ctx.debug_dir)
+            greeting.welcome(self._ctx, self)
+            self._start_status_monitor()
+        except BaseException as exc:
+            self._abort_init(exc)
+            raise
 
     # ----------------------------------
     # 私有钩子
@@ -238,6 +293,75 @@ class Run:
                 self.finish(state=state, error=full_error_msg)
         self._sys_origin_excepthook(tp, val, tb)
 
+    def _handle_fork(self) -> None:
+        """fork 子进程：替换为不持有父进程资源的 Core 占位。
+
+        该回调运行在 fork 子进程，禁止获取可能被其它线程持有的锁或写日志。
+        CorePython 等不支持 detach 的实现保持原对象，API 层仍会以 fork 错误拦截。
+        """
+        # 子进程不会继承父进程后台线程，直接清空句柄即可（fork 回调内不得加锁或写日志）
+        self._status_timer = None
+        try:
+            self._core = self._core.fork()
+        except Exception:
+            pass
+
+    def _abort_init(self, cause: Optional[BaseException] = None) -> None:
+        """init 失败回滚：停组件与 probe、回收 Core、撤销 hook 和全局实例。
+
+        可重复调用；回滚过程不覆盖原始 init 异常。
+        """
+        if self._state != "running":
+            return
+        self._state = "crashed"
+        self._stop_status_monitor()
+        if self._probe_started:
+            with safe.block(level="debug", message="probe finish failed during init abort"):
+                self._probe.deliver_probe_finish()
+        if self._components_started:
+            with safe.block(level="debug", message="components stop failed during init abort"):
+                self._components.stop()
+        with safe.block(level="debug", message="core abort failed during init"):
+            self._core.abort(cause)
+        self._cleanup_hooks()
+        if _current_run is self:
+            clear_run()
+        with safe.block(level="debug", message="console reset failed during init abort"):
+            console.reset()
+
+    def _cleanup_hooks(self) -> None:
+        """撤销 init 期注册的全局钩子；可重复调用。
+
+        init() 在主线程、finish() 在子线程时，signal.signal() 会抛 ValueError，
+        因此 SIGINT 只在当前确为主线程时才恢复；否则保留 _sigint_installed 标记，
+        交给 _handle_sigint 在真正的 Ctrl+C 路径上在主线程收尾。
+        """
+        if self._fork_registered:
+            with safe.block(level="debug", message="fork hook unregister failed"):
+                fork.unregister(self._handle_fork)
+            self._fork_registered = False
+        if self._atexit_registered:
+            atexit.unregister(self._handle_atexit)
+            self._atexit_registered = False
+        if self._excepthook_installed:
+            sys.excepthook = self._sys_origin_excepthook
+            self._excepthook_installed = False
+        if self._sigint_installed and _in_main_thread():
+            self._sigint_installed = False
+            signal.signal(signal.SIGINT, self._original_sigint_handler)
+
+    def _report_local_recovery(self, message: str) -> None:
+        """confirm 失败且本地副本完整时，提示从 run-*.swanlab 恢复。"""
+        if self.mode != "online":
+            return
+        # 仅当 Core 明确告知已保存本地时提示，避免本地副本不完整时误报。
+        if "saved locally" not in message:
+            return
+        console.warning(
+            f"Data is saved at: {self._ctx.run_file}",
+            f"After resolving the issue, upload it with `swanlab sync {self._ctx.run_dir}`.",
+        )
+
     # ----------------------------------
     # 公开辅助属性
     # ----------------------------------
@@ -280,33 +404,142 @@ class Run:
         assert self._ctx.run_dir is not None, "Run dir is not set."
         return self._ctx.run_dir
 
-    @cached_property
+    def _update_cloud_status_from_stats(self, resp: Any) -> Optional[OperationStats]:
+        """从统计响应同步最新云端绑定状态、真实路径和失败原因，并返回解析后的统计对象。"""
+        if not getattr(resp, "success", False) or not hasattr(resp, "stats") or not resp.HasField("stats"):
+            return None
+        stats = resp.stats
+        if stats.HasField("cloud"):
+            cloud = stats.cloud
+            self._cloud_state = cloud.state
+            if cloud.path:
+                self._path = cloud.path
+            if cloud.error:
+                self._cloud_error = cloud.error
+        return stats
+
+    def _sync_cloud_status(self) -> None:
+        """当云端路径尚未确定且 Run 仍存活时，主动拉取一次最新云端状态。"""
+        if self._path or self.mode != "online" or not self.alive or not hasattr(self, "_core"):
+            return
+        with safe.block(level="debug", message="sync cloud status failed"):
+            self._update_cloud_status_from_stats(self._core.get_operation_stats())
+
+    def _start_status_monitor(self) -> None:
+        """在支持运行期状态上报的 online Run 上启动轻量定时器，及时向终端同步恢复或暂停提示。"""
+        if self.mode != "online" or getattr(self._core, "reports_runtime_stats", False) is not True:
+            return
+        self._status_timer = timer.Timer(
+            self._poll_runtime_stats,
+            interval=self._STATUS_POLL_INTERVAL,
+            name="SwanLab·StatusMonitor",
+        ).start()
+
+    def _stop_status_monitor(self) -> None:
+        """取消并等待运行期状态定时器退出，避免 finish/close 阶段竞态访问 Core。"""
+        status_timer = self._status_timer
+        self._status_timer = None
+        if status_timer is not None:
+            status_timer.cancel()
+            status_timer.join(timeout=1.0)
+
+    def _poll_runtime_stats(self) -> None:
+        """拉取一次 Core 状态快照并在状态跃迁时输出终端提示。"""
+        if not self.alive:
+            return
+        with safe.block(level="debug", message="runtime status poll failed"):
+            self._handle_runtime_stats(self._core.get_operation_stats())
+
+    def _handle_runtime_stats(self, resp: Any) -> None:
+        """根据 Core 上报的 cloud / upload 状态快照，在状态变化时向终端打印一次性提示。"""
+        if not self.alive:
+            return
+        stats = self._update_cloud_status_from_stats(resp)
+        if stats is None:
+            return
+
+        if not self._cloud_link_printed and self._path:
+            self._cloud_link_printed = True
+            console.info("♻️ Connected to SwanLab online service; uploading local records.")
+            greeting.print_cloud_link(self)
+        elif not self._cloud_failure_reported and self._cloud_state == CLOUD_STATE_FAILED:
+            self._cloud_failure_reported = True
+            detail = f": {self._cloud_error}" if self._cloud_error else ""
+            with console.skip_capture():
+                console.error(f"❌ Failed to connect to SwanLab online service{detail}.")
+                console.warning(
+                    f"⚠️ Records saved to {self._ctx.run_dir}; upload later with `swanlab sync {self._ctx.run_dir}`."
+                )
+
+        # attach 失败不额外刷上传失败/暂停告警
+        if stats.HasField("cloud") and stats.cloud.state in (CLOUD_STATE_PENDING, CLOUD_STATE_FAILED):
+            return
+        if stats.HasField("upload"):
+            if self._upload_warn_throttle is None:
+                self._upload_warn_throttle = throttle.WarningThrottle(
+                    self._UPLOAD_WARN_INTERVAL, clock=lambda: time.monotonic()
+                )
+            suspended = bool(stats.upload.suspended)
+            retrying = bool(stats.upload.retrying)
+            if suspended or retrying:
+                if not self._upload_degraded:
+                    self._upload_warn_throttle.reset()
+                if self._upload_warn_throttle.should_emit():
+                    with console.skip_capture():
+                        if suspended:
+                            console.warning(
+                                "🚨 Upload paused due to network or server issues; "
+                                "data is saved locally and will resume automatically."
+                            )
+                        else:
+                            console.warning("🚨 Upload failed due to network or server issues, retrying automatically.")
+                self._upload_degraded = True
+            elif self._upload_degraded:
+                self._upload_degraded = False
+                self._upload_warn_throttle.reset()
+                console.info("✅ Upload recovered, resuming normally.")
+
+    def _require_cloud_path(self, attr: Literal["path", "url"]) -> str:
+        """读取已绑定的云端路径；未绑定时按在线等待或失败状态给出明确异常。"""
+        if self.mode != "online":
+            raise ValueError(
+                f"Run {attr} is unavailable because the current run is not using SwanLab online mode. "
+                "Please initialize SwanLab with online mode to access the run path."
+            )
+        if not self._path:
+            self._sync_cloud_status()
+        if self._path:
+            return self._path
+        if self._cloud_state == CLOUD_STATE_FAILED:
+            detail = f": {self._cloud_error}" if self._cloud_error else ""
+            raise ValueError(
+                f"Run {attr} is unavailable because the connection to SwanLab online service failed{detail}. "
+                f"Data is saved at {self._ctx.config.run_dir}; after resolving the issue, "
+                f"upload it with `swanlab sync {self._ctx.config.run_dir}`."
+            )
+        raise ValueError(
+            f"Run {attr} is unavailable because the run has not connected to SwanLab online service yet "
+            "(reconnection is still in progress)."
+        )
+
+    @property
     def path(self) -> str:
         """
         Current run path in the format of /:username/:project_name/:run_id.
 
         :return: Run path
         """
-        if not self._path:
-            raise ValueError(
-                "Run path is unavailable because the current run is not using SwanLab online mode. "
-                "Please initialize SwanLab with online mode to access the run path."
-            )
-        return self._path
+        return self._require_cloud_path("path")
 
-    @cached_property
+    @property
     def url(self) -> str:
         """
-        Current run URL if in online mode, otherwise None.
-        :return: Run URL or None
+        Current run URL if in online mode, otherwise raises ValueError.
+        :return: Run URL
         """
-        if not self._path:
-            raise ValueError(
-                "Run url is unavailable because the current run is not using SwanLab online mode. "
-                "Please initialize SwanLab with online mode to access the run path."
-            )
+        path = self._require_cloud_path("url")
         settings = self._ctx.config.settings
-        return f"{settings.web_host}{helper.fmt_run_path(self._path)}"
+        return f"{settings.web_host}{helper.fmt_run_path(path)}"
 
     @cached_property
     def config(self) -> Config:
@@ -907,37 +1140,53 @@ class Run:
         if state == "crashed" and error is None:
             console.warning("Crashed reason has been set to 'unknown' due to missing error message.")
             error = "unknown"
+        self._stop_status_monitor()
+        if self.mode == "online" and not self._path:
+            self._sync_cloud_status()
+        had_cloud_path = bool(self._path)
         greeting.goodbye(self._ctx, self)
         # 2. 运行结束，清理组件
         self._state = this_state
-        # 停止所有内部组件（async_log → terminal → config → consumer）
-        self._components.stop(async_log_timeout=async_log_timeout)
-        # 停止probe
-        self._probe.deliver_probe_finish()
-        ts = Timestamp()
-        ts.GetCurrentTime()
-        # 3. 停止Core
-        finish_request = DeliverRunFinishRequest(
-            finish_record=FinishRecord(state=adapter.state[this_state], error=error, finished_at=ts)
-        )
-        finish_resp = self._core.deliver_run_finish(finish_request)
-        if not finish_resp.success:
-            console.error(finish_resp.message)
-        confirm_resp = run_with_progress(
-            stats_fn=self._core.get_operation_stats,
-            blocking_fn=self._core.confirm_run_finish,
-        )
-        if not confirm_resp.success:
-            console.error(confirm_resp.message)
+        try:
+            # 停止所有内部组件（async_log → terminal → config → consumer）
+            self._components.stop(async_log_timeout=async_log_timeout)
+            # 停止probe
+            self._probe.deliver_probe_finish()
+            ts = Timestamp()
+            ts.GetCurrentTime()
+            # 3. 停止 Core
+            finish_request = DeliverRunFinishRequest(
+                finish_record=FinishRecord(state=adapter.state[this_state], error=error, finished_at=ts)
+            )
+            finish_resp = retry_finish_call(self._core, lambda: self._core.deliver_run_finish(finish_request))
+            if not finish_resp.success:
+                console.error(finish_resp.message)
+            # 需要 confirm 完成资源回收的实现，deliver 失败后仍继续。
+            if finish_resp.success or self._core.confirm_after_deliver_failure:
+                confirm_resp = run_with_progress(
+                    stats_fn=self._core.get_operation_stats,
+                    blocking_fn=lambda: retry_finish_call(self._core, self._core.confirm_run_finish),
+                    on_stats=self._update_cloud_status_from_stats,
+                )
+                if not had_cloud_path and self._path and self.mode == "online":
+                    console.info("♻️ Connected to SwanLab online service.")
+                    greeting.print_cloud_link(self)
+                if confirm_resp.success and self._upload_degraded and self.mode == "online":
+                    self._upload_degraded = False
+                    console.info("✅ Upload recovered, resuming normally.")
+                if not confirm_resp.success:
+                    console.error(confirm_resp.message)
+                    self._report_local_recovery(confirm_resp.message)
+        finally:
+            # 无论 deliver/confirm 是否成功，都必须回收 Core 进程与 channel
+            with safe.block(message="core close failed during finish"):
+                self._core.close()
         # finish 回调
         self._callbacker.on_run_finished(this_state, error)
         console.debug(f"SwanLab Run has finished with state: {self._state}, cleanup...")
         # 4. 清理副作用
         console.debug("Cleanup system hook...")
-        atexit.unregister(self._handle_atexit)
-        sys.excepthook = self._sys_origin_excepthook
-        if self._is_main_thread:
-            signal.signal(signal.SIGINT, self._original_sigint_handler)
+        self._cleanup_hooks()
         # 清理全局运行实例
         console.debug("Cleanup global instance...")
         clear_run()

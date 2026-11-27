@@ -19,6 +19,7 @@ import subprocess
 from typing import Dict, List, Optional, Tuple
 
 from swanlab.sdk.internal.pkg import console, safe
+from swanlab.sdk.internal.probe_python.hardware_vendor.utils import DEFAULT_TIMEOUT
 from swanlab.sdk.internal.probe_python.protocol import AcceleratorProtocol, CollectResult
 from swanlab.sdk.internal.probe_python.typings import (
     AcceleratorSnapshot,
@@ -173,6 +174,7 @@ class IluvatarGPU(AcceleratorProtocol):
             check=True,
             text=True,
             encoding="utf-8",
+            timeout=DEFAULT_TIMEOUT,
         ).stdout
         lines = output.strip().split("\n")
         results: List[float] = []
@@ -235,6 +237,7 @@ class IluvatarGPU(AcceleratorProtocol):
                 check=True,
                 text=True,
                 encoding="utf-8",
+                timeout=DEFAULT_TIMEOUT,
             ).stdout
 
         if output_str is None:

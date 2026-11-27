@@ -6,6 +6,7 @@
 """
 
 import json
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -13,12 +14,16 @@ import requests
 
 from swanlab.exceptions import ApiError, AuthenticationError
 from swanlab.sdk.cmd.init import (
+    _can_recover_online,
+    _ensure_online_client_or_fallback,
+    _has_local_run_file,
     compatible_kwargs,
     ensure_run_dir,
     load_config,
     prompt_init_mode,
     set_nested_value,
 )
+from swanlab.sdk.internal.context.components import CoreBackend
 
 
 def _wrapped_auth_error(cause: BaseException) -> AuthenticationError:
@@ -149,8 +154,8 @@ def test_prompt_login_transient_error_degrades(mock_settings, monkeypatch, polic
     mock_login.assert_called_once()
 
 
-def test_prompt_login_unauthorized_still_raises(mock_settings, monkeypatch):
-    """401/403 属于 API Key 错误，不做降级。"""
+def test_prompt_login_unauthorized_degrades_under_offline_policy(mock_settings, monkeypatch):
+    """交互引导遇 401/403 时，默认按 on_online_error="offline" 降级；设为 raise 时抛错。"""
     monkeypatch.setattr("swanlab.sdk.cmd.init.client.exists", lambda: False)
     mock_settings.api_key = None
     mock_settings.on_online_error = "offline"
@@ -161,6 +166,9 @@ def test_prompt_login_unauthorized_still_raises(mock_settings, monkeypatch):
     )
     monkeypatch.setattr("builtins.input", lambda prompt: "1")
 
+    assert prompt_init_mode(mock_settings) == "offline"
+
+    mock_settings.on_online_error = "raise"
     with pytest.raises(AuthenticationError):
         prompt_init_mode(mock_settings)
 
@@ -539,3 +547,96 @@ class TestEnsureRunDirShared:
 
         assert "unknown_hostname" in run_dir.name
         warning.assert_called_once()
+
+
+class TestOnlineRecoveryEligibility:
+    """_has_local_run_file / _can_recover_online 判定条件"""
+
+    def test_has_local_run_file_requires_non_empty_file(self, tmp_path):
+        missing = tmp_path / "missing"
+        assert _has_local_run_file(missing) is False
+
+        empty_dir = tmp_path / "empty_dir"
+        empty_dir.mkdir()
+        assert _has_local_run_file(empty_dir) is False
+
+        zero_file = empty_dir / "run-1.swanlab"
+        zero_file.write_bytes(b"")
+        assert _has_local_run_file(empty_dir) is False
+
+        zero_file.write_bytes(b"hdr")
+        assert _has_local_run_file(empty_dir) is True
+
+    @pytest.mark.parametrize(
+        ("impl", "mode", "on_online_error", "api_key", "resume", "has_local", "expected"),
+        [
+            ("go", "online", "offline", "secret-key", "never", False, True),
+            ("go", "online", "offline", "secret-key", "allow", True, True),
+            ("go", "online", "offline", "secret-key", "must", True, True),
+            ("go", "online", "offline", "secret-key", "allow", False, False),
+            ("go", "online", "offline", "secret-key", "must", False, False),
+            ("python", "online", "offline", "secret-key", "never", False, False),
+            ("go", "offline", "offline", "secret-key", "never", False, False),
+            ("go", "online", "disabled", "secret-key", "never", False, False),
+            ("go", "online", "raise", "secret-key", "never", False, False),
+            ("go", "online", "offline", "", "never", False, False),
+        ],
+    )
+    def test_can_recover_online_matrix(
+        self,
+        tmp_path: Path,
+        impl: str,
+        mode: str,
+        on_online_error: str,
+        api_key: str,
+        resume: str,
+        has_local: bool,
+        expected: bool,
+    ):
+        run_dir = tmp_path / "run-dir"
+        run_dir.mkdir()
+        if has_local:
+            (run_dir / "run-abc.swanlab").write_bytes(b"record")
+
+        backend = CoreBackend("go", binary=Path("/fake/core")) if impl == "go" else CoreBackend("python")
+        settings = MagicMock()
+        settings.mode = mode
+        settings.on_online_error = on_online_error
+        settings.api_key = api_key
+        settings.run.resume = resume
+
+        assert _can_recover_online(backend, settings, run_dir) is expected
+
+    def test_malformed_login_response_falls_back_without_recovery(self, monkeypatch, tmp_path):
+        """2xx 响应缺少字段时不进入后台恢复，按 on_online_error 降级。"""
+        import swanlab.sdk.cmd.init as init_module
+        from swanlab.sdk.internal.pkg.client import is_recoverable_login_error, is_transient_login_error
+
+        cause = ApiError(
+            None,
+            method="POST",
+            code="invalid_login_response",
+            message="Invalid login response: 'sid'",
+            retryable=True,
+        )
+        exc = _wrapped_auth_error(cause)
+        assert is_transient_login_error(exc)
+        assert not is_recoverable_login_error(exc)
+
+        monkeypatch.setattr(init_module, "client", MagicMock(exists=MagicMock(return_value=False)))
+        monkeypatch.setattr(init_module, "login_raw", MagicMock(side_effect=exc))
+        settings = MagicMock()
+        settings.api_key = "test-key"
+        settings.api_host = "http://api.test"
+        settings.on_online_error = "offline"
+
+        fallback = MagicMock()
+        monkeypatch.setattr(init_module, "_switch_run_to_fallback", fallback)
+        ctx = MagicMock()
+        for allow_recover_online in (True, False):
+            mode, recover, fallback_error = _ensure_online_client_or_fallback(
+                ctx, settings, "run-1", tmp_path, allow_recover_online=allow_recover_online
+            )
+            assert (mode, recover, fallback_error) == ("offline", False, None)
+        assert fallback.call_count == 2
+        ctx.core.abort.assert_not_called()

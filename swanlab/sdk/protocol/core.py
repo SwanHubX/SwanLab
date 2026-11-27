@@ -7,7 +7,7 @@
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     CORE_ERROR_KIND_OTHER,
@@ -32,7 +32,19 @@ from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
 from swanlab.sdk.internal.pkg import safe
 from swanlab.sdk.typings.run import ModeType
 
-__all__ = ["CoreEnum", "CoreProtocol", "CoreSyncProtocol"]
+__all__ = [
+    "CoreEnum",
+    "CoreProtocol",
+    "CoreProtocolError",
+    "CoreSyncProtocol",
+    "MAX_MESSAGE_BYTES",
+    "NullCoreProtocol",
+    "is_terminal_stats_error",
+]
+
+# 单条消息的传输上限（4 MiB），必须与 Go 侧 maxRecvMsgSize 保持一致。
+# skip_store 模式下媒体字节直接内联在消息里，单条超过它永远发不出去。
+MAX_MESSAGE_BYTES = 4 << 20
 
 
 class CoreEnum(str, Enum):
@@ -40,14 +52,51 @@ class CoreEnum(str, Enum):
     CORE = "Core"
 
 
+class CoreProtocolError(Exception):
+    """core 交互错误基类。
+
+    retryable 为 True 表示同一批数据可以重试（限流、网络不可用、超时）；
+    为 False 表示确定性拒绝，调用方必须终结该批，不能无限回塞。
+    too_large 为 True 表示单次请求超过传输上限：只能拆小或丢弃，重试没有意义。
+    """
+
+    def __init__(self, message: str = "", *, retryable: bool, too_large: bool = False) -> None:
+        super().__init__(message)
+        self.retryable = retryable
+        self.too_large = too_large
+
+
 class CoreProtocol(ABC):
     """
     SwanLab Core 协议
     协议层作为一个"垫片"，抹平前端与后端实现的差异，我们对CoreProtocol的错误处理理念基本与go一致，不raise Error，仅返回处理结果，上层根据返回结果做相应处理
+
+    ``raises_on_upsert_error`` 是实现级开关：默认 False 保持"记录日志后吞掉"的历史语义；
+    置为 True 的实现把 upsert 异常交给调用方（consumer）分类重试或终结。
     """
+
+    raises_on_upsert_error: bool = False
+
+    # deliver 失败后是否仍执行 confirm；confirm 负责资源回收的实现保持 True。
+    confirm_after_deliver_failure: bool = True
+
+    # 通过 get_operation_stats() 实时上报云端接入与上传暂停状态的实现（如 Go Core）置为 True，供 Run 启动状态监听。
+    reports_runtime_stats: bool = False
 
     def __init__(self, mode: ModeType):
         self._mode = mode
+
+    @property
+    def last_error(self) -> Optional[CoreProtocolError]:
+        """最近一次失败的分类错误；实现可按需覆盖，默认不提供结构化错误。"""
+        return None
+
+    def _guard_upsert(self, message: str, call: Callable[[], None]) -> None:
+        if self.raises_on_upsert_error:
+            call()
+            return
+        with safe.block(message=message):
+            call()
 
     # ---------------------------------- 实验开始 ----------------------------------
 
@@ -88,158 +137,191 @@ class CoreProtocol(ABC):
             success=True, message="I'm a teapot.", run=start_request.start_record, new_experiment=True
         )
 
-    @abstractmethod
-    def _start_when_local(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse: ...
+    def _start_when_enabled(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+        raise NotImplementedError
 
-    @abstractmethod
-    def _start_when_offline(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse: ...
+    def _start_when_local(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+        return self._start_when_enabled(start_request)
 
-    @abstractmethod
-    def _start_when_online(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse: ...
+    def _start_when_offline(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+        return self._start_when_enabled(start_request)
+
+    def _start_when_online(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+        return self._start_when_enabled(start_request)
 
     # ---------------------------------- 指标定义 ----------------------------------
 
     def upsert_columns(self, columns: List[ColumnRecord]) -> None:
         """上报一组 ColumnRecord，定义指标列"""
-        with safe.block(message="upsert columns error"):
-            if self._mode == "online":
-                return self._upsert_columns_when_online(columns)
-            elif self._mode == "local":
-                return self._upsert_columns_when_local(columns)
-            elif self._mode == "offline":
-                return self._upsert_columns_when_offline(columns)
-            return self._upsert_columns_when_disabled(columns)
+        self._guard_upsert("upsert columns error", lambda: self._upsert_columns_dispatch(columns))
+
+    def _upsert_columns_dispatch(self, columns: List[ColumnRecord]) -> None:
+        if self._mode == "online":
+            return self._upsert_columns_when_online(columns)
+        elif self._mode == "local":
+            return self._upsert_columns_when_local(columns)
+        elif self._mode == "offline":
+            return self._upsert_columns_when_offline(columns)
+        return self._upsert_columns_when_disabled(columns)
 
     def _upsert_columns_when_disabled(self, columns: List[ColumnRecord]) -> None: ...
 
-    @abstractmethod
-    def _upsert_columns_when_local(self, columns: List[ColumnRecord]) -> None: ...
+    def _upsert_columns_when_enabled(self, columns: List[ColumnRecord]) -> None:
+        raise NotImplementedError
 
-    @abstractmethod
-    def _upsert_columns_when_offline(self, columns: List[ColumnRecord]) -> None: ...
+    def _upsert_columns_when_local(self, columns: List[ColumnRecord]) -> None:
+        return self._upsert_columns_when_enabled(columns)
 
-    @abstractmethod
-    def _upsert_columns_when_online(self, columns: List[ColumnRecord]) -> None: ...
+    def _upsert_columns_when_offline(self, columns: List[ColumnRecord]) -> None:
+        return self._upsert_columns_when_enabled(columns)
+
+    def _upsert_columns_when_online(self, columns: List[ColumnRecord]) -> None:
+        return self._upsert_columns_when_enabled(columns)
 
     # ---------------------------------- 标量指标值 ----------------------------------
 
     def upsert_scalars(self, scalars: List[ScalarRecord]) -> None:
         """上报一组 ScalarRecord，记录标量指标值"""
-        with safe.block(message="upsert data error"):
-            if self._mode == "online":
-                return self._upsert_scalars_when_online(scalars)
-            elif self._mode == "local":
-                return self._upsert_scalars_when_local(scalars)
-            elif self._mode == "offline":
-                return self._upsert_scalars_when_offline(scalars)
-            return self._upsert_scalars_when_disabled(scalars)
+        self._guard_upsert("upsert data error", lambda: self._upsert_scalars_dispatch(scalars))
+
+    def _upsert_scalars_dispatch(self, scalars: List[ScalarRecord]) -> None:
+        if self._mode == "online":
+            return self._upsert_scalars_when_online(scalars)
+        elif self._mode == "local":
+            return self._upsert_scalars_when_local(scalars)
+        elif self._mode == "offline":
+            return self._upsert_scalars_when_offline(scalars)
+        return self._upsert_scalars_when_disabled(scalars)
 
     def _upsert_scalars_when_disabled(self, scalars: List[ScalarRecord]) -> None: ...
 
-    @abstractmethod
-    def _upsert_scalars_when_local(self, scalars: List[ScalarRecord]) -> None: ...
+    def _upsert_scalars_when_enabled(self, scalars: List[ScalarRecord]) -> None:
+        raise NotImplementedError
 
-    @abstractmethod
-    def _upsert_scalars_when_offline(self, scalars: List[ScalarRecord]) -> None: ...
+    def _upsert_scalars_when_local(self, scalars: List[ScalarRecord]) -> None:
+        return self._upsert_scalars_when_enabled(scalars)
 
-    @abstractmethod
-    def _upsert_scalars_when_online(self, scalars: List[ScalarRecord]) -> None: ...
+    def _upsert_scalars_when_offline(self, scalars: List[ScalarRecord]) -> None:
+        return self._upsert_scalars_when_enabled(scalars)
+
+    def _upsert_scalars_when_online(self, scalars: List[ScalarRecord]) -> None:
+        return self._upsert_scalars_when_enabled(scalars)
 
     # ---------------------------------- 媒体指标值 ----------------------------------
 
     def upsert_media(self, media: List[MediaRecord]) -> None:
         """上报一组 MediaRecord，记录媒体指标值"""
-        with safe.block(message="upsert data error"):
-            if self._mode == "online":
-                return self._upsert_media_when_online(media)
-            elif self._mode == "local":
-                return self._upsert_media_when_local(media)
-            elif self._mode == "offline":
-                return self._upsert_media_when_offline(media)
-            return self._upsert_media_when_disabled(media)
+        self._guard_upsert("upsert data error", lambda: self._upsert_media_dispatch(media))
+
+    def _upsert_media_dispatch(self, media: List[MediaRecord]) -> None:
+        if self._mode == "online":
+            return self._upsert_media_when_online(media)
+        elif self._mode == "local":
+            return self._upsert_media_when_local(media)
+        elif self._mode == "offline":
+            return self._upsert_media_when_offline(media)
+        return self._upsert_media_when_disabled(media)
 
     def _upsert_media_when_disabled(self, media: List[MediaRecord]) -> None: ...
 
-    @abstractmethod
-    def _upsert_media_when_local(self, media: List[MediaRecord]) -> None: ...
+    def _upsert_media_when_enabled(self, media: List[MediaRecord]) -> None:
+        raise NotImplementedError
 
-    @abstractmethod
-    def _upsert_media_when_offline(self, media: List[MediaRecord]) -> None: ...
+    def _upsert_media_when_local(self, media: List[MediaRecord]) -> None:
+        return self._upsert_media_when_enabled(media)
 
-    @abstractmethod
-    def _upsert_media_when_online(self, media: List[MediaRecord]) -> None: ...
+    def _upsert_media_when_offline(self, media: List[MediaRecord]) -> None:
+        return self._upsert_media_when_enabled(media)
+
+    def _upsert_media_when_online(self, media: List[MediaRecord]) -> None:
+        return self._upsert_media_when_enabled(media)
 
     # ---------------------------------- 直方图指标值 ----------------------------------
 
     def upsert_histograms(self, histograms: List[HistogramRecord]) -> None:
         """上报一组 HistogramRecord，记录直方图指标值"""
-        with safe.block(message="upsert histograms error"):
-            if self._mode == "online":
-                return self._upsert_histograms_when_online(histograms)
-            elif self._mode == "local":
-                return self._upsert_histograms_when_local(histograms)
-            elif self._mode == "offline":
-                return self._upsert_histograms_when_offline(histograms)
-            return self._upsert_histograms_when_disabled(histograms)
+        self._guard_upsert("upsert histograms error", lambda: self._upsert_histograms_dispatch(histograms))
+
+    def _upsert_histograms_dispatch(self, histograms: List[HistogramRecord]) -> None:
+        if self._mode == "online":
+            return self._upsert_histograms_when_online(histograms)
+        elif self._mode == "local":
+            return self._upsert_histograms_when_local(histograms)
+        elif self._mode == "offline":
+            return self._upsert_histograms_when_offline(histograms)
+        return self._upsert_histograms_when_disabled(histograms)
 
     def _upsert_histograms_when_disabled(self, histograms: List[HistogramRecord]) -> None: ...
 
-    @abstractmethod
-    def _upsert_histograms_when_local(self, histograms: List[HistogramRecord]) -> None: ...
+    def _upsert_histograms_when_enabled(self, histograms: List[HistogramRecord]) -> None:
+        raise NotImplementedError
 
-    @abstractmethod
-    def _upsert_histograms_when_offline(self, histograms: List[HistogramRecord]) -> None: ...
+    def _upsert_histograms_when_local(self, histograms: List[HistogramRecord]) -> None:
+        return self._upsert_histograms_when_enabled(histograms)
 
-    @abstractmethod
-    def _upsert_histograms_when_online(self, histograms: List[HistogramRecord]) -> None: ...
+    def _upsert_histograms_when_offline(self, histograms: List[HistogramRecord]) -> None:
+        return self._upsert_histograms_when_enabled(histograms)
+
+    def _upsert_histograms_when_online(self, histograms: List[HistogramRecord]) -> None:
+        return self._upsert_histograms_when_enabled(histograms)
 
     # ---------------------------------- 终端输出 ----------------------------------
 
     def upsert_logs(self, logs: List[LogRecord]) -> None:
         """上报一组 LogRecord，记录用户终端输出"""
-        with safe.block(message="upsert logs error"):
-            if self._mode == "online":
-                return self._upsert_logs_when_online(logs)
-            elif self._mode == "local":
-                return self._upsert_logs_when_local(logs)
-            elif self._mode == "offline":
-                return self._upsert_logs_when_offline(logs)
-            return self._upsert_logs_when_disabled(logs)
+        self._guard_upsert("upsert logs error", lambda: self._upsert_logs_dispatch(logs))
+
+    def _upsert_logs_dispatch(self, logs: List[LogRecord]) -> None:
+        if self._mode == "online":
+            return self._upsert_logs_when_online(logs)
+        elif self._mode == "local":
+            return self._upsert_logs_when_local(logs)
+        elif self._mode == "offline":
+            return self._upsert_logs_when_offline(logs)
+        return self._upsert_logs_when_disabled(logs)
 
     def _upsert_logs_when_disabled(self, logs: List[LogRecord]) -> None: ...
 
-    @abstractmethod
-    def _upsert_logs_when_local(self, logs: List[LogRecord]) -> None: ...
+    def _upsert_logs_when_enabled(self, logs: List[LogRecord]) -> None:
+        raise NotImplementedError
 
-    @abstractmethod
-    def _upsert_logs_when_offline(self, logs: List[LogRecord]) -> None: ...
+    def _upsert_logs_when_local(self, logs: List[LogRecord]) -> None:
+        return self._upsert_logs_when_enabled(logs)
 
-    @abstractmethod
-    def _upsert_logs_when_online(self, logs: List[LogRecord]) -> None: ...
+    def _upsert_logs_when_offline(self, logs: List[LogRecord]) -> None:
+        return self._upsert_logs_when_enabled(logs)
+
+    def _upsert_logs_when_online(self, logs: List[LogRecord]) -> None:
+        return self._upsert_logs_when_enabled(logs)
 
     # ---------------------------------- 文件保存 ----------------------------------
 
     def upsert_saves(self, saves: List[SaveRecord]) -> None:
         """上报一组 SaveRecord，记录用户通过 swanlab.save() 保存的文件"""
-        with safe.block(message="upsert saves error"):
-            if self._mode == "online":
-                return self._upsert_saves_when_online(saves)
-            elif self._mode == "local":
-                return self._upsert_saves_when_local(saves)
-            elif self._mode == "offline":
-                return self._upsert_saves_when_offline(saves)
-            return self._upsert_saves_when_disabled(saves)
+        self._guard_upsert("upsert saves error", lambda: self._upsert_saves_dispatch(saves))
+
+    def _upsert_saves_dispatch(self, saves: List[SaveRecord]) -> None:
+        if self._mode == "online":
+            return self._upsert_saves_when_online(saves)
+        elif self._mode == "local":
+            return self._upsert_saves_when_local(saves)
+        elif self._mode == "offline":
+            return self._upsert_saves_when_offline(saves)
+        return self._upsert_saves_when_disabled(saves)
 
     def _upsert_saves_when_disabled(self, saves: List[SaveRecord]) -> None: ...
 
-    @abstractmethod
-    def _upsert_saves_when_local(self, saves: List[SaveRecord]) -> None: ...
+    def _upsert_saves_when_enabled(self, saves: List[SaveRecord]) -> None:
+        raise NotImplementedError
 
-    @abstractmethod
-    def _upsert_saves_when_offline(self, saves: List[SaveRecord]) -> None: ...
+    def _upsert_saves_when_local(self, saves: List[SaveRecord]) -> None:
+        return self._upsert_saves_when_enabled(saves)
 
-    @abstractmethod
-    def _upsert_saves_when_online(self, saves: List[SaveRecord]) -> None: ...
+    def _upsert_saves_when_offline(self, saves: List[SaveRecord]) -> None:
+        return self._upsert_saves_when_enabled(saves)
+
+    def _upsert_saves_when_online(self, saves: List[SaveRecord]) -> None:
+        return self._upsert_saves_when_enabled(saves)
 
     # ---------------------------------- 通知运行结束 ----------------------------------
 
@@ -262,14 +344,17 @@ class CoreProtocol(ABC):
     def _finish_when_disabled() -> DeliverRunFinishResponse:
         return DeliverRunFinishResponse(success=True, message="I'm a teapot.")
 
-    @abstractmethod
-    def _finish_when_local(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse: ...
+    def _finish_when_enabled(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
+        raise NotImplementedError
 
-    @abstractmethod
-    def _finish_when_offline(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse: ...
+    def _finish_when_local(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
+        return self._finish_when_enabled(finish_request)
 
-    @abstractmethod
-    def _finish_when_online(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse: ...
+    def _finish_when_offline(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
+        return self._finish_when_enabled(finish_request)
+
+    def _finish_when_online(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
+        return self._finish_when_enabled(finish_request)
 
     # ---------------------------------- 进度查询 ----------------------------------
 
@@ -297,6 +382,23 @@ class CoreProtocol(ABC):
     @abstractmethod
     def _confirm_finish_when_enabled(self) -> ConfirmRunFinishResponse: ...
 
+    # ---------------------------------- 生命周期回收 ----------------------------------
+
+    def close(self) -> None:
+        """正常关闭当前客户端持有的 Core 资源；幂等且不隐式 confirm，不抛出。
+
+        所有权语义由实现与连接模式决定：
+        - Owner Mode（默认）：关闭关联的 Core 进程与本地传输通道；
+        - Detached Mode：仅释放本客户端的会话引用与本地连接，不关闭共享 Core 进程。
+        """
+
+    def abort(self, cause: Optional[BaseException] = None) -> None:
+        """异常路径回收当前客户端持有的 Core 资源；幂等且不抛出。
+
+        - Owner Mode（默认）：尽力通知 Core 退出并有界回收子进程；
+        - Detached Mode：仅关闭本地连接（由服务端断连清理接管未释放会话），不影响共享 Core。
+        """
+
     # ---------------------------------- 进程fork ----------------------------------
 
     @abstractmethod
@@ -305,6 +407,83 @@ class CoreProtocol(ABC):
         创建一个新的 CoreProtocol，此函数用于处理多进程fork的情况
         """
         ...
+
+
+class NullCoreProtocol(CoreProtocol):
+    """空 Core 实现：不启动进程、不发送 RPC。
+
+    生命周期调用统一返回失败，Upsert 全部空操作；用于 fork child 等需要与真实
+    Core 脱钩的场景，子类可通过 message 定制失败原因。
+    """
+
+    def __init__(self, mode: ModeType, *, message: str = "null core does not support this operation") -> None:
+        super().__init__(mode)
+        self._message = message
+
+    # ---------------------------------- 实验开始 ----------------------------------
+
+    def _start_when_enabled(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+        return DeliverRunStartResponse(success=False, message=self._message)
+
+    # ---------------------------------- 数据上报：全部空操作 ----------------------------------
+
+    def _upsert_columns_when_enabled(self, columns: List[ColumnRecord]) -> None:
+        return None
+
+    def _upsert_scalars_when_enabled(self, scalars: List[ScalarRecord]) -> None:
+        return None
+
+    def _upsert_media_when_enabled(self, media: List[MediaRecord]) -> None:
+        return None
+
+    def _upsert_histograms_when_enabled(self, histograms: List[HistogramRecord]) -> None:
+        return None
+
+    def _upsert_logs_when_enabled(self, logs: List[LogRecord]) -> None:
+        return None
+
+    def _upsert_saves_when_enabled(self, saves: List[SaveRecord]) -> None:
+        return None
+
+    # ---------------------------------- 通知运行结束 ----------------------------------
+
+    def _finish_when_enabled(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
+        return DeliverRunFinishResponse(success=False, message=self._message)
+
+    # ---------------------------------- 进度查询与确认 ----------------------------------
+
+    def _get_operation_when_online(self) -> GetOperationStatsResponse:
+        return GetOperationStatsResponse(success=False, message=self._message)
+
+    def _confirm_finish_when_enabled(self) -> ConfirmRunFinishResponse:
+        return ConfirmRunFinishResponse(success=False, message=self._message)
+
+    # ---------------------------------- 进程 fork 与回收 ----------------------------------
+
+    def fork(self) -> "CoreProtocol":
+        """空 Core 没有可脱离的资源，返回自身。"""
+        return self
+
+    def close(self) -> None:
+        """空操作。"""
+
+    def abort(self, cause: Optional[BaseException] = None) -> None:
+        """空操作。"""
+
+
+_TERMINAL_STATS_MARKERS = ("SESSION_NOT_FOUND", "NOT_STARTED", "CLOSED", "grpc=NOT_FOUND")
+
+
+def is_terminal_stats_error(response: GetOperationStatsResponse) -> bool:
+    """判断 stats 失败是否属于终态。
+
+    proto 还没有 reason 字段，CoreGo 会把 CoreGoError 的原因码写进 message；
+    命中这些 token 说明 session 已经结束，继续轮询只会刷告警。
+    """
+    if response.success:
+        return False
+    message = response.message or ""
+    return any(marker in message for marker in _TERMINAL_STATS_MARKERS)
 
 
 class CoreSyncProtocol(ABC):
@@ -326,3 +505,9 @@ class CoreSyncProtocol(ABC):
 
     @abstractmethod
     def confirm_sync_finish(self) -> ConfirmSyncFinishResponse: ...
+
+    def close(self) -> None:
+        """正常关闭并释放底层同步资源；默认空实现以兼容纯 Python sync。"""
+
+    def abort(self, cause: Optional[BaseException] = None) -> None:
+        """失败或中断路径回收底层同步资源；默认空实现以兼容纯 Python sync。"""

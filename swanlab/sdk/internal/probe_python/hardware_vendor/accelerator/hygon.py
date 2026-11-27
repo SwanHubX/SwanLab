@@ -22,6 +22,7 @@ import subprocess
 from typing import Dict, List, Optional, Tuple
 
 from swanlab.sdk.internal.pkg import console, safe
+from swanlab.sdk.internal.probe_python.hardware_vendor.utils import DEFAULT_TIMEOUT
 from swanlab.sdk.internal.probe_python.protocol import AcceleratorProtocol, CollectResult
 from swanlab.sdk.internal.probe_python.typings import (
     AcceleratorSnapshot,
@@ -129,7 +130,9 @@ class HygonDCU(AcceleratorProtocol):
         for idx in self._indices:
             results.append((f"dcu.{idx}.pct", math.nan))
         with safe.block(message="Failed to collect Hygon DCU utilization data", level="debug"):
-            output = subprocess.run(["hy-smi", "--showuse", "--json"], capture_output=True, text=True).stdout
+            output = subprocess.run(
+                ["hy-smi", "--showuse", "--json"], capture_output=True, text=True, timeout=DEFAULT_TIMEOUT
+            ).stdout
             data = json.loads(output)
             for idx, (dcu_key, dcu_info) in enumerate(data.items()):
                 if idx in self._indices:
@@ -145,7 +148,9 @@ class HygonDCU(AcceleratorProtocol):
             results.append((f"dcu.{idx}.mem.pct", math.nan))
             results.append((f"dcu.{idx}.mem.value", math.nan))
         with safe.block(message="Failed to collect Hygon DCU memory data", level="debug"):
-            output = subprocess.run(["hy-smi", "--showmemuse", "--json"], capture_output=True, text=True).stdout
+            output = subprocess.run(
+                ["hy-smi", "--showmemuse", "--json"], capture_output=True, text=True, timeout=DEFAULT_TIMEOUT
+            ).stdout
             data = json.loads(output)
             for idx, (dcu_key, dcu_info) in enumerate(data.items()):
                 if idx in self._indices:
@@ -161,7 +166,9 @@ class HygonDCU(AcceleratorProtocol):
         for idx in self._indices:
             results.append((f"dcu.{idx}.temp", math.nan))
         with safe.block(message="Failed to collect Hygon DCU temperature data", level="debug"):
-            output = subprocess.run(["hy-smi", "--showtemp", "--json"], capture_output=True, text=True).stdout
+            output = subprocess.run(
+                ["hy-smi", "--showtemp", "--json"], capture_output=True, text=True, timeout=DEFAULT_TIMEOUT
+            ).stdout
             data = json.loads(output)
             for idx, (dcu_key, dcu_info) in enumerate(data.items()):
                 if idx in self._indices:
@@ -176,7 +183,9 @@ class HygonDCU(AcceleratorProtocol):
         for idx in self._indices:
             results.append((f"dcu.{idx}.power", math.nan))
         with safe.block(message="Failed to collect Hygon DCU power data", level="debug"):
-            output = subprocess.run(["hy-smi", "--showpower", "--json"], capture_output=True, text=True).stdout
+            output = subprocess.run(
+                ["hy-smi", "--showpower", "--json"], capture_output=True, text=True, timeout=DEFAULT_TIMEOUT
+            ).stdout
             data = json.loads(output)
             for idx, (dcu_key, dcu_info) in enumerate(data.items()):
                 if idx in self._indices:
@@ -228,7 +237,7 @@ class HygonDCU(AcceleratorProtocol):
         driver_version = None
         with safe.block(message="Failed to get Hygon DCU driver version", level="debug"):
             driver_info = subprocess.run(
-                ["hy-smi", "--showdriverversion"], capture_output=True, check=True, text=True
+                ["hy-smi", "--showdriverversion"], capture_output=True, check=True, text=True, timeout=DEFAULT_TIMEOUT
             ).stdout
             for line in driver_info.split("\n"):
                 if "Driver Version" in line:
@@ -239,12 +248,20 @@ class HygonDCU(AcceleratorProtocol):
         with safe.block(message="Failed to map Hygon DCU devices", level="debug"):
             product_map = json.loads(
                 subprocess.run(
-                    ["hy-smi", "--showproductname", "--json"], capture_output=True, check=True, text=True
+                    ["hy-smi", "--showproductname", "--json"],
+                    capture_output=True,
+                    check=True,
+                    text=True,
+                    timeout=DEFAULT_TIMEOUT,
                 ).stdout
             )
             available_mem_map = json.loads(
                 subprocess.run(
-                    ["hy-smi", "--showmemavailable", "--json"], capture_output=True, check=True, text=True
+                    ["hy-smi", "--showmemavailable", "--json"],
+                    capture_output=True,
+                    check=True,
+                    text=True,
+                    timeout=DEFAULT_TIMEOUT,
                 ).stdout
             )
 

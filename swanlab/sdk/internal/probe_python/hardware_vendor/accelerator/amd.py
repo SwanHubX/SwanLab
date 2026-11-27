@@ -25,6 +25,7 @@ import subprocess
 from typing import Dict, List, Optional, Tuple
 
 from swanlab.sdk.internal.pkg import console, safe
+from swanlab.sdk.internal.probe_python.hardware_vendor.utils import DEFAULT_TIMEOUT
 from swanlab.sdk.internal.probe_python.protocol import AcceleratorProtocol, CollectResult
 from swanlab.sdk.internal.probe_python.typings import (
     AcceleratorSnapshot,
@@ -177,7 +178,7 @@ class AMDGPU(AcceleratorProtocol):
         results: List[CollectResult] = []
         output = ""
         with safe.block(message="Failed to run hipinfo for AMD GPU collection", level="debug"):
-            output = subprocess.run(["hipinfo"], capture_output=True, text=True).stdout
+            output = subprocess.run(["hipinfo"], capture_output=True, text=True, timeout=DEFAULT_TIMEOUT).stdout
 
         devices_content: Dict[str, str] = {}
         parts = re.split(r"device#\s+(\d+)", output)
@@ -286,7 +287,12 @@ class AMDGPU(AcceleratorProtocol):
         if not gpu_map:
             with safe.block(message="Failed to map AMD GPUs via rocm-smi fallback", level="debug"):
                 data = json.loads(
-                    subprocess.run(["rocm-smi", "--showproductname", "--json"], capture_output=True, text=True).stdout
+                    subprocess.run(
+                        ["rocm-smi", "--showproductname", "--json"],
+                        capture_output=True,
+                        text=True,
+                        timeout=DEFAULT_TIMEOUT,
+                    ).stdout
                 )
                 for k, v in data.items():
                     idx = k.replace("card", "")
@@ -298,7 +304,9 @@ class AMDGPU(AcceleratorProtocol):
         driver_version = "Unknown"
         gpu_map: dict = {}
         with safe.block(message="Failed to map AMD GPUs via hipinfo on Windows", level="debug"):
-            output = subprocess.run(["hipinfo"], capture_output=True, text=True, check=True).stdout
+            output = subprocess.run(
+                ["hipinfo"], capture_output=True, text=True, check=True, timeout=DEFAULT_TIMEOUT
+            ).stdout
             devices = re.split(r"device#\s+(\d+)", output)
             if len(devices) < 2:
                 gpu_map.update(AMDGPU._parse_hipinfo_text_block("0", output))

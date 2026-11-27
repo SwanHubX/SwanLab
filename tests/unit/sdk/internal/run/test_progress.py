@@ -7,6 +7,8 @@ from rich.text import Text
 
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import GetOperationStatsResponse
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import (
+    CloudState,
+    CloudStatus,
     CoreState,
     FileProgress,
     OperationStats,
@@ -23,6 +25,8 @@ from swanlab.sdk.internal.run.fmt import (
 )
 from swanlab.sdk.internal.run.progress import (
     _build_renderable,
+    _print_summary,
+    _should_show,
     progress_display,
     run_with_progress,
 )
@@ -363,6 +367,77 @@ class TestRunWithProgress:
         result = run_with_progress(provider.get_operation_stats, lambda: expected, timeout=5.0)
         assert result is expected
 
+    def test_terminal_stats_error_skips_polling_and_warnings(self, monkeypatch):
+        """session 已消失（NOT_FOUND）时直接收尾，不再刷告警。"""
+        warnings = []
+        stats_calls = []
+        monkeypatch.setattr(progress_module.console, "warning", lambda *args, **kwargs: warnings.append(args))
+
+        def stats_fn() -> GetOperationStatsResponse:
+            stats_calls.append(True)
+            assert len(stats_calls) <= 2, "terminal stats error must stop polling"
+            return GetOperationStatsResponse(
+                success=False,
+                message="[RPC/SESSION_NOT_FOUND] no such session (grpc=NOT_FOUND)",
+            )
+
+        called = []
+        run_with_progress(stats_fn, lambda: called.append(True))
+
+        assert called == [True]
+        assert len(stats_calls) == 1
+        assert warnings == []
+
+    def test_non_terminal_stats_error_still_warns_once(self, monkeypatch):
+        """非终态失败保持原有行为：告警一次后继续收尾。"""
+        warnings = []
+        monkeypatch.setattr(progress_module.console, "warning", lambda *args, **kwargs: warnings.append(args))
+
+        def stats_fn() -> GetOperationStatsResponse:
+            return GetOperationStatsResponse(success=False, message="[RPC/GRPC_UNAVAILABLE] connect failed")
+
+        called = []
+        run_with_progress(stats_fn, lambda: called.append(True))
+
+        assert called == [True]
+        assert len(warnings) == 1
+
+    def test_terminal_stats_error_during_polling_stops_loop(self, monkeypatch):
+        """轮询中途 session 消失：立即退出循环，完成最后一次查询后执行收尾。"""
+        warnings = []
+        monkeypatch.setattr(progress_module.console, "warning", lambda *args, **kwargs: warnings.append(args))
+        running = OperationStats(
+            state=CoreState.CORE_STATE_RUNNING,
+            total_number=1,
+            uploaded_number=0,
+            total_size=100,
+            uploaded_size=0,
+            rate=0,
+        )
+        terminal = GetOperationStatsResponse(
+            success=False,
+            message="[RPC/SESSION_NOT_FOUND] no such session (grpc=NOT_FOUND)",
+        )
+        responses = iter(
+            [
+                GetOperationStatsResponse(success=True, message="OK", stats=running),
+                terminal,
+                terminal,
+            ]
+        )
+        stats_calls = []
+
+        def stats_fn() -> GetOperationStatsResponse:
+            stats_calls.append(True)
+            return next(responses)
+
+        called = []
+        run_with_progress(stats_fn, lambda: called.append(True), unit="bytes")
+
+        assert called == [True]
+        assert len(stats_calls) == 3  # 初始 + 轮询中途 + 最终查询
+        assert warnings == []
+
     def test_live_updates_refresh_immediately(self, monkeypatch):
         class FakeLive:
             instances = []
@@ -417,3 +492,152 @@ class TestRunWithProgress:
 
         assert result == "ok"
         assert FakeLive.instances[0].updates == [True]
+
+    def test_deadline_applies_while_stats_fail(self, monkeypatch):
+        """core 挂掉后 stats 持续失败，deadline 仍必须生效，不能卡在失败分支。"""
+        monkeypatch.setattr(progress_module, "_POLL_INTERVAL", 0.01)
+        running = OperationStats(
+            state=CoreState.CORE_STATE_RUNNING,
+            total_number=1,
+            uploaded_number=0,
+            total_size=100,
+            uploaded_size=0,
+            rate=0,
+        )
+        failure = GetOperationStatsResponse(success=False, message="[RPC/GRPC_UNAVAILABLE] connect failed")
+        calls = []
+
+        def stats_fn() -> GetOperationStatsResponse:
+            calls.append(True)
+            if len(calls) == 1:
+                return GetOperationStatsResponse(success=True, message="OK", stats=running)
+            assert len(calls) < 50, "deadline must stop polling even when every stats call fails"
+            return failure
+
+        called = []
+        run_with_progress(stats_fn, lambda: called.append(True), timeout=0.05, unit="bytes")
+
+        assert called == [True]
+        assert len(calls) < 50
+
+    def test_consecutive_stats_failures_stop_polling(self, monkeypatch):
+        """无 timeout（如 swanlab.sync）时，连续传输失败也必须收敛，不能永久轮询。"""
+        monkeypatch.setattr(progress_module, "_POLL_INTERVAL", 0)
+        monkeypatch.setattr(progress_module, "_MAX_CONSECUTIVE_STATS_FAILURES", 3)
+        running = OperationStats(
+            state=CoreState.CORE_STATE_RUNNING,
+            total_number=1,
+            uploaded_number=0,
+            total_size=100,
+            uploaded_size=0,
+            rate=0,
+        )
+        calls = []
+
+        def stats_fn() -> GetOperationStatsResponse:
+            calls.append(True)
+            if len(calls) == 1:
+                return GetOperationStatsResponse(success=True, message="OK", stats=running)
+            return GetOperationStatsResponse(success=False, message="[RPC/GRPC_UNAVAILABLE] connect failed")
+
+        called = []
+        run_with_progress(stats_fn, lambda: called.append(True), unit="bytes")
+
+        assert called == [True]
+        # 初始检查 + 3 次连续失败 + 收尾前最后一次查询
+        assert len(calls) == 1 + 3 + 1
+
+
+class TestCloudRecoveryProgress:
+    """云端恢复等待与失败状态下进度展示及收尾提示。"""
+
+    def test_should_show_and_render_waiting_when_total_records_zero(self):
+        stats = OperationStats(
+            state=CoreState.CORE_STATE_RUNNING,
+            total_records=0,
+            cloud=CloudStatus(state=CloudState.CLOUD_STATE_PENDING, error="503 unavailable"),
+        )
+        assert _should_show(stats, "auto") is True
+        text = _render_plain(stats, "auto")
+        assert "Reconnecting to SwanLab online service..." in text
+        assert "503 unavailable" in text
+
+    def test_cloud_failed_skips_upload_complete_zero_records(self, monkeypatch):
+        messages = []
+        monkeypatch.setattr(progress_module.console, "info", lambda *args, **kwargs: messages.append(args))
+        stats = OperationStats(
+            state=CoreState.CORE_STATE_FINISHED,
+            total_records=0,
+            uploaded_records=0,
+            cloud=CloudStatus(state=CloudState.CLOUD_STATE_FAILED, error="401 invalid"),
+        )
+        _print_summary(stats, "auto", finished=True, interrupted=False)
+        assert messages == []
+
+    def test_waiting_cloud_keyboard_interrupt_prints_recovery_prompt_and_summary(self, monkeypatch):
+        class FakeLive:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def start(self):
+                pass
+
+            def update(self, *args, **kwargs):
+                pass
+
+            def stop(self):
+                pass
+
+        messages = []
+        monkeypatch.setattr(progress_module, "Live", FakeLive)
+        monkeypatch.setattr(progress_module.console, "c", SimpleNamespace(is_terminal=True))
+        monkeypatch.setattr(progress_module.os, "isatty", lambda _: True)
+        monkeypatch.setattr(
+            progress_module.console, "info", lambda *args, **kwargs: messages.append(" ".join(map(str, args)))
+        )
+        monkeypatch.setattr(progress_module, "_POLL_INTERVAL", 0.01)
+
+        pending = OperationStats(
+            state=CoreState.CORE_STATE_RUNNING,
+            cloud=CloudStatus(state=CloudState.CLOUD_STATE_PENDING),
+        )
+        calls = 0
+
+        def stats_fn() -> GetOperationStatsResponse:
+            nonlocal calls
+            calls += 1
+            # 第 1 次：初始检查；第 2 次：首轮刷新以标记 _has_shown=True；第 3 次：中断轮询
+            if calls == 3:
+                raise KeyboardInterrupt()
+            return GetOperationStatsResponse(success=True, stats=pending)
+
+        res = run_with_progress(stats_fn, lambda: "done", timeout=5.0)
+        assert res == "done"
+        joined = "\n".join(messages)
+        assert "SwanLab online service reconnection still in progress... Press" in joined
+        assert "SwanLab online service reconnection still in progress; continuing in background." in joined
+
+    def test_waiting_cloud_timeout_summary(self, monkeypatch):
+        messages = []
+        monkeypatch.setattr(
+            progress_module.console, "info", lambda *args, **kwargs: messages.append(" ".join(map(str, args)))
+        )
+        stats = OperationStats(
+            state=CoreState.CORE_STATE_RUNNING,
+            cloud=CloudStatus(state=CloudState.CLOUD_STATE_PENDING),
+        )
+        _print_summary(stats, "auto", finished=False, interrupted=False, timed_out=True)
+        assert any("SwanLab online service reconnection timed out." in m for m in messages)
+
+    def test_waiting_cloud_without_timeout_uses_neutral_summary(self, monkeypatch):
+        messages = []
+        monkeypatch.setattr(
+            progress_module.console, "info", lambda *args, **kwargs: messages.append(" ".join(map(str, args)))
+        )
+        stats = OperationStats(
+            state=CoreState.CORE_STATE_RUNNING,
+            cloud=CloudStatus(state=CloudState.CLOUD_STATE_PENDING),
+        )
+        _print_summary(stats, "auto", finished=False, interrupted=False)
+        assert any("SwanLab online service reconnection is still in progress." in m for m in messages)
+        assert all("timed out" not in m for m in messages)
