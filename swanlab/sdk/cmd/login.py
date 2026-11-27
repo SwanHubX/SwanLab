@@ -144,9 +144,14 @@ def login_raw(
                     "🚨 Authentication failed with SwanLab online service during login, records will be saved locally."
                 )
             else:
-                console.warning(
-                    "🚨 SwanLab online service is unreachable during login; connection will be retried in background."
-                )
+                if helper.get_core_impl() == "go":
+                    console.warning(
+                        "🚨 SwanLab online service is unreachable during login; connection will be retried in background."
+                    )
+                else:
+                    console.warning(
+                        "🚨 SwanLab online service is unreachable during login; records will be saved locally."
+                    )
             return False
         login_resp: Optional[LoginResponse] = s.get("login_resp", None)
         if print_welcome:

@@ -133,7 +133,7 @@ def isolate_sdk_environment(tmp_path, monkeypatch):
         global_callbacker.remove_callback(callback.name)
 
     # 8. 恢复默认后端实现并重置回退告警状态，避免 require() 调用跨测试污染
-    helper.set_core_impl(CoreEnum.CORE)
+    helper.set_core_impl(CoreEnum.CORE_PYTHON)
     helper.set_probe_impl(ProbeEnum.PROBE_PYTHON)
     reset_fallback_warning()
 

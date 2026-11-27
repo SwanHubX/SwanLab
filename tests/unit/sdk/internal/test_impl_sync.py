@@ -19,7 +19,20 @@ from swanlab.sdk.internal.pkg import helper
 from swanlab.sdk.protocol import CoreEnum
 
 
-def test_create_core_sync_defaults_to_core_go(monkeypatch, tmp_path: Path):
+def test_create_core_sync_defaults_to_core_sync_python(monkeypatch):
+    def fail() -> Path:
+        raise AssertionError("default python sync path must not locate core binary")
+
+    monkeypatch.setattr(runtime_module, "locate_core_binary", fail)
+
+    core = impl.create_core_sync()
+
+    assert helper.get_core_impl() == "python"
+    assert isinstance(core, CoreSyncPython)
+
+
+def test_create_core_sync_core_go_opt_in(monkeypatch, tmp_path: Path):
+    helper.set_core_impl(CoreEnum.CORE)
     binary = tmp_path / "swanlab-core"
     binary.write_text("#!/bin/sh\n", encoding="utf-8")
     monkeypatch.setattr(runtime_module, "locate_core_binary", lambda: binary)
@@ -45,6 +58,7 @@ def test_create_core_sync_python_opt_out_skips_locate(monkeypatch):
 
 
 def test_create_core_sync_missing_binary_falls_back_and_warns_once(monkeypatch):
+    helper.set_core_impl(CoreEnum.CORE)
     warnings: List[str] = []
     monkeypatch.setattr(
         core_factory.console,

@@ -14,9 +14,9 @@ from swanlab.sdk.protocol import CoreEnum, ProbeEnum
 
 require_env = os.environ.get("SWANLAB_REQUIRE", "")
 # probe 默认使用 Python
-# core 默认使用 Go 实现（可通过 core_python 切回 Python 内置实现）。
+# core 默认使用 Python 内置实现（可通过 core 切换到 Go 实现）。
 _probe_impl: ProbeEnum = ProbeEnum.PROBE_PYTHON
-_core_impl: CoreEnum = CoreEnum.CORE
+_core_impl: CoreEnum = CoreEnum.CORE_PYTHON
 
 
 def set_probe_impl(impl: ProbeEnum) -> None:

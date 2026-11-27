@@ -19,6 +19,11 @@ from swanlab.sdk.internal.run import clear_run
 from swanlab.sdk.internal.settings import Settings, set_global_settings
 
 
+@pytest.fixture(autouse=True)
+def _enable_go_core():
+    swanlab.require("core")
+
+
 def _base_settings(
     url: str,
     log_dir: Path,

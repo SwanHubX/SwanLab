@@ -1,6 +1,6 @@
 """
 @file: test_require.py
-@description: 验证 SWANLAB_REQUIRE / swanlab.require 默认 CoreGo、no-op 告警与 core_python 回切。
+@description: 验证 SWANLAB_REQUIRE / swanlab.require 默认 CorePython、静默幂等切换与 core 启用。
 """
 
 import os
@@ -44,32 +44,39 @@ def captured_warnings(monkeypatch) -> List[str]:
     return captured
 
 
-def test_default_core_impl_is_go_and_probe_is_python():
-    assert helper.get_core_impl() == "go"
+def test_default_core_impl_is_python_and_probe_is_python():
+    assert helper.get_core_impl() == "python"
     assert helper.get_probe_impl() == "python"
-    assert _query_impl_in_subprocess() == "go python"
+    assert _query_impl_in_subprocess() == "python python"
 
 
-def test_env_core_python_switches_back_to_python():
+def test_env_core_switches_to_go_and_core_python_stays_python():
+    assert _query_impl_in_subprocess("core") == "go python"
+    assert _query_impl_in_subprocess("CORE") == "go python"
     assert _query_impl_in_subprocess("core_python") == "python python"
     assert _query_impl_in_subprocess("CORE_PYTHON") == "python python"
-    assert _query_impl_in_subprocess("core") == "go python"
 
 
-def test_require_core_warns_noop_by_default(captured_warnings):
+def test_require_is_quietly_idempotent(captured_warnings):
+    assert swanlab.require("core_python") == ["core_python"]
+    assert helper.get_core_impl() == "python"
+
     assert swanlab.require("core") == ["core"]
     assert helper.get_core_impl() == "go"
-    assert len(captured_warnings) == 1
-    assert "no-op" in captured_warnings[0]
+
+    assert swanlab.require("core") == ["core"]
+    assert helper.get_core_impl() == "go"
+    assert captured_warnings == []
 
 
-def test_require_switches_to_core_python_and_back(captured_warnings):
-    assert swanlab.require("core_python") == ["core_python"]
+def test_require_switches_to_core_and_back(captured_warnings):
     assert helper.get_core_impl() == "python"
 
     assert swanlab.require("CORE") == ["core"]
     assert helper.get_core_impl() == "go"
-    # 从 core_python 切回 Go 是真实切换，不应提示 no-op
+
+    assert swanlab.require("core_python") == ["core_python"]
+    assert helper.get_core_impl() == "python"
     assert captured_warnings == []
 
 

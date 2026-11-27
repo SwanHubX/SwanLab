@@ -2,7 +2,7 @@
 @author: Nexisato
 @file: test_sync_go_e2e.py
 @time: 2026/11/18
-@description: 默认 Go core 路由下 swanlab.init(offline) -> swanlab.sync() 端到端集成测试。
+@description: 启用 Go core 路由下 swanlab.init(offline) -> swanlab.sync() 端到端集成测试。
 """
 
 from __future__ import annotations
@@ -10,12 +10,19 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
+import pytest
+
 import swanlab
 from swanlab.sdk.cmd.login import login_raw
 from swanlab.sdk.cmd.sync import sync as sync_run
 from swanlab.sdk.internal import impl
 from swanlab.sdk.internal.settings import Settings
 from swanlab.sdk.internal.settings.experiment import ProjectSettings, RunSettings
+
+
+@pytest.fixture(autouse=True)
+def _enable_go_core():
+    swanlab.require("core")
 
 
 def _create_offline_run_dir(*, steps: int = 5, finish_run: bool = True, log_dir: Optional[Path] = None) -> Path:
