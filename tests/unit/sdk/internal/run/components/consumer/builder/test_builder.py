@@ -15,8 +15,24 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem, MediaRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveType
 from swanlab.sdk.internal.bus.events import ConfigEvent
+from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.run.components.consumer.builder import _NON_SCALAR_TYPES, RecordBuilder, is_scalar_value
 from swanlab.sdk.internal.run.transforms import Text
+from swanlab.sdk.protocol.core import MAX_MESSAGE_BYTES
+
+
+def _make_builder(
+    *,
+    media_max_size: int = 50 * 1024**2,
+    skip_store: bool = False,
+    max_length: int = 108,
+) -> RecordBuilder:
+    """直接实例化并覆盖实例属性，避免测试依赖完整 RunContext"""
+    builder = object.__new__(RecordBuilder)
+    builder._media_max_size = media_max_size  # type: ignore[attr-defined]
+    builder._skip_store = skip_store  # type: ignore[attr-defined]
+    builder._MEDIA_MAX_LENGTH = max_length  # type: ignore[attr-defined]
+    return builder
 
 
 def _make_media_record(key: str = "test", step: int = 0, items=None) -> MediaRecord:
@@ -34,10 +50,7 @@ class TestEnsureMediaSize:
     # 不依赖 RunContext，直接实例化并覆盖类属性
     @pytest.fixture
     def builder(self):
-        b = object.__new__(RecordBuilder)
-        b._media_max_size = 100  # 100 bytes  # type: ignore
-        b._MEDIA_MAX_LENGTH = 3  # type: ignore
-        return b
+        return _make_builder(media_max_size=100, max_length=3)
 
     def test_all_items_within_limits_returns_original(self, builder):
         """所有项都在限制内，返回原 record"""
@@ -108,6 +121,33 @@ class TestEnsureMediaSize:
         record = _make_media_record(items=[("a.png", 10), ("b.png", 10), ("c.png", 10)])
         result = builder._ensure_media_size(record)
         assert result is record
+
+    def test_skip_store_drops_item_over_transport_limit(self, monkeypatch):
+        """skip_store 下媒体字节内联在消息里：超过传输上限的项永远发不出去，构建期就丢弃"""
+        warnings = []
+        monkeypatch.setattr(console, "warning", lambda *args, **kwargs: warnings.append(args[0]))
+        builder = _make_builder(skip_store=True)
+        record = _make_media_record(key="train/img", step=1, items=[("big.png", MAX_MESSAGE_BYTES + 1)])
+
+        result = builder._ensure_media_size(record)
+
+        assert result is None
+        assert len(warnings) == 1
+        assert "big.png" in warnings[0] and "train/img" in warnings[0] and "transport limit" in warnings[0]
+
+    def test_skip_store_keeps_item_within_transport_limit(self):
+        """skip_store 下远小于单条裸大小上限的项在构建期保留（整包含信封上限由发送期兜底）"""
+        builder = _make_builder(skip_store=True)
+        record = _make_media_record(items=[("ok.png", MAX_MESSAGE_BYTES - 1024)])
+
+        assert builder._ensure_media_size(record) is record
+
+    def test_inline_item_size_limit_only_applies_with_skip_store(self):
+        """落盘模式下媒体写为本地文件，超过内联传输上限也不影响构建"""
+        builder = _make_builder(skip_store=False)
+        record = _make_media_record(items=[("big.png", MAX_MESSAGE_BYTES + 1)])
+
+        assert builder._ensure_media_size(record) is record
 
 
 class TestResolveMediaDir:

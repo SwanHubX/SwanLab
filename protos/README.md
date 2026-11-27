@@ -39,6 +39,14 @@ protos/
     │   └── v1/
     │       └── save.proto              # 文件保存记录（SaveRecord、SavePolicy）
     │
+    ├── operation/
+    │   └── v1/
+    │       └── operation.proto         # 运行状态与上传进度（OperationStats、CoreState、CloudState、UploadStatus、CloudStatus）
+    │
+    ├── probe/
+    │   └── v1/
+    │       └── metadata.proto          # 硬件与环境元数据快照（MetadataSnapshot）
+    │
     ├── settings/
     │   ├── core/
     │   │   └── v1/
@@ -49,10 +57,9 @@ protos/
     │
     └── grpc/
         ├── core/
-        │   ├── v1/
-        │   │   ├── core.proto          # CoreService gRPC 服务（接收实验记录）
-        │   │   └── sync.proto          # CoreSyncService gRPC 服务（启动日志同步）
-        │   └── ...
+        │   └── v1/
+        │       ├── core.proto          # CoreService gRPC 服务（接收实验记录与管理会话）
+        │       └── sync.proto          # CoreSyncService gRPC 服务（启动日志同步）
         └── probe/
             └── v1/
                 └── probe.proto         # ProbeService gRPC 服务（启动硬件采集）
@@ -113,20 +120,22 @@ swanlab.finish()
 
 ### CoreService
 
-`grpc/core/v1/core.proto` 定义核心业务接口，用于同步/异步接收实验记录：
+`grpc/core/v1/core.proto` 定义核心业务接口，用于同步/异步接收实验记录与管理服务及会话生命周期。所有 run 级 RPC（`Upsert*`、`DeliverRunFinish`、`GetOperationStats`、`ConfirmRunFinish`）均显式携带由 `DeliverRunStartResponse.session_id` 返回的 `session_id` 进行会话路由；`DeliverRunStartResponse.error_kind`（`CoreErrorKind`）用于区分认证、瞬态与其它启动错误：
 
-| RPC 方法            | 请求类型                | 响应类型                  | 说明               |
-| ------------------- | ----------------------- | ------------------------- | ------------------ |
-| `DeliverRunStart`   | DeliverRunStartRequest  | DeliverRunStartResponse   | 实验开始           |
-| `UpsertColumns`     | UpsertColumnsRequest    | Empty                     | 定义指标列         |
-| `UpsertScalars`     | UpsertScalarsRequest    | Empty                     | 记录标量值         |
-| `UpsertMedia`       | UpsertMediaRequest      | Empty                     | 记录媒体值         |
-| `UpsertHistograms`  | UpsertHistogramsRequest | Empty                     | 记录直方图快照     |
-| `UpsertLogs`        | UpsertLogsRequest       | Empty                     | 终端输出           |
-| `UpsertSaves`       | UpsertSavesRequest      | Empty                     | 文件保存           |
-| `DeliverRunFinish`  | DeliverRunFinishRequest | DeliverRunFinishResponse  | 实验结束           |
-| `GetOperationStats` | Empty                   | GetOperationStatsResponse | 运行状态与上传进度 |
-| `ConfirmRunFinish`  | Empty                   | ConfirmRunFinishResponse  | 确认结束，安全退出 |
+| RPC 方法            | 请求类型                 | 响应类型                  | 说明                       |
+| ------------------- | ------------------------ | ------------------------- | -------------------------- |
+| `SpinupService`     | SpinupServiceRequest     | SpinupServiceResponse     | 服务启动握手，置为 READY   |
+| `TeardownService`   | TeardownServiceRequest   | TeardownServiceResponse   | 关闭整个 Core 服务进程     |
+| `DeliverRunStart`   | DeliverRunStartRequest   | DeliverRunStartResponse   | 实验开始，分配 `session_id` |
+| `UpsertColumns`     | UpsertColumnsRequest     | Empty                     | 定义指标列                 |
+| `UpsertScalars`     | UpsertScalarsRequest     | Empty                     | 记录标量值                 |
+| `UpsertMedia`       | UpsertMediaRequest       | Empty                     | 记录媒体值                 |
+| `UpsertHistograms`  | UpsertHistogramsRequest  | Empty                     | 记录直方图快照             |
+| `UpsertLogs`        | UpsertLogsRequest        | Empty                     | 终端输出                   |
+| `UpsertSaves`       | UpsertSavesRequest       | Empty                     | 文件保存                   |
+| `DeliverRunFinish`  | DeliverRunFinishRequest  | DeliverRunFinishResponse  | 实验结束                   |
+| `GetOperationStats` | GetOperationStatsRequest | GetOperationStatsResponse | 运行状态与上传进度         |
+| `ConfirmRunFinish`  | ConfirmRunFinishRequest  | ConfirmRunFinishResponse  | 确认结束并释放指定会话     |
 
 ### CoreSyncService
 
@@ -186,6 +195,14 @@ swanlab.finish()
 
 - **CoreSettings** (`settings/core/v1/core.proto`): Core 同步服务的启动配置
 - **ProbeSettings** (`settings/probe/v1/probe.proto`): Probe 硬件采集服务的启动配置
+
+### operation — 运行状态与上传进度
+
+`operation/v1/operation.proto` 定义 Core 运行期间的状态与进度快照结构：
+
+- **CoreState**: Core 生命周期状态（`NOT_STARTED` / `RUNNING` / `FINISHED`）
+- **CloudState**: 延迟接入云端实验的状态（`UNSPECIFIED` / `PENDING` / `ATTACHED` / `FAILED`）
+- **OperationStats**: 聚合进度快照，包含文件数与字节数统计、记录处理数、速率、在途文件列表（`FileProgress`）、上传投递状态（`UploadStatus`）及云端接入状态（`CloudStatus`）
 
 ## ColumnRecord 生成策略
 

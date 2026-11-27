@@ -19,6 +19,7 @@ import sys
 from typing import Callable, Literal, cast
 
 from swanlab.sdk.internal.pkg import fork, safe
+from swanlab.sdk.internal.pkg.console import capture_skipped
 
 # ----------------------------------
 # 模块级重入保护状态
@@ -90,8 +91,8 @@ class StreamCapture:
             if fork.is_forked(init_pid):
                 return n
 
-            # 3. 重入保护：仅防同线程递归，不同线程可并发
-            if _in_callback.get():
+            # 3. 重入保护（仅防同线程递归）并跳过 console.skip_capture() 内的 SDK 自身告警
+            if _in_callback.get() or capture_skipped():
                 return n
             _in_callback.set(True)
 

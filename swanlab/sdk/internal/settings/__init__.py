@@ -35,7 +35,7 @@ from pydantic_settings import (
 
 from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreSettings as CoreSettingsPb
 from swanlab.proto.swanlab.settings.probe.v1.probe_pb2 import ProbeSettings as ProbeSettingsPb
-from swanlab.sdk.internal.pkg import console, helper, nrc, safe
+from swanlab.sdk.internal.pkg import adapter, console, helper, nrc, safe
 from swanlab.sdk.typings.run import ModeType, OnlineErrorPolicy
 
 from .compat import getenv, log_dir_factory, strip_env_quotes
@@ -153,14 +153,15 @@ class Settings(BaseSettings):
 
     on_online_error: OnlineErrorPolicy = "offline"
     """
-    Online connection failure policy.
+    Online connection and authentication failure policy.
 
-    Only transient connection/server failures are degraded; authentication and
-    configuration errors always fail.
+    Transient connection/server failures and authentication errors (401/403) are handled
+    according to this policy; configuration errors always fail.
 
-    * `disabled`: Degrade to disabled mode and stop recording when SwanLab Cloud is unreachable.
-    * `offline`: Degrade to offline mode and keep local recording when SwanLab Cloud is unreachable.
-    * `raise`: Fail initialization when SwanLab Cloud is unreachable.
+    * `disabled`: Degrade to disabled mode and stop recording when SwanLab online service is unreachable or authentication fails.
+    * `offline`: Keep online mode and save locally while retrying the connection on transient outages,
+      or fall back to offline mode on auth/unrecoverable errors.
+    * `raise`: Fail initialization when SwanLab online service is unreachable or authentication fails.
     """
 
     log_dir: Path = Field(default_factory=log_dir_factory, validate_default=True)
@@ -339,10 +340,11 @@ class Settings(BaseSettings):
         str_strip_whitespace=True,
     )
 
-    def to_core_proto(self, run_id: str, run_dir: Path) -> CoreSettingsPb:
+    def to_core_proto(self, run_id: str, run_dir: Path, *, recover_online: bool = False) -> CoreSettingsPb:
         return CoreSettingsPb(
             run_id=run_id,
             run_dir=str(run_dir.absolute()),
+            mode=adapter.core_mode[self.mode],
             section_rule=self.core.section_rule,
             record_batch=self.core.record_batch,
             record_interval=self.core.record_interval,
@@ -351,6 +353,16 @@ class Settings(BaseSettings):
             save_part=self.core.save_part,
             save_batch=self.core.save_batch,
             skip_store=self.core.skip_store,
+            recover_online=recover_online if self.mode == "online" else False,
+            api_key=self.api_key or "",
+            api_host=self.api_host,
+            web_host=self.web_host,
+            upload_budget_records=self.core.upload_budget_records,
+            upload_budget_bytes=self.core.upload_budget_bytes,
+            health_probe_interval=self.core.health_probe_interval,
+            health_probe_timeout=self.core.health_probe_timeout,
+            health_degrade_threshold=self.core.health_degrade_threshold,
+            health_recover_threshold=self.core.health_recover_threshold,
         )
 
     def to_probe_proto(

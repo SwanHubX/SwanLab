@@ -21,14 +21,13 @@
 
 适用路径：`core/internal/pkg/console/**`（含 `log/`）。
 
-- 与 Python `swanlab/sdk/internal/pkg/console` 的镜像关系必须保持：`Info`/`Debug`/`Warning`/`Error`/`Trace` 语义、`SWANLAB_DEBUG` 和 `NO_COLOR` 环境变量、loguru 风格格式（时间戳 | 级别 | 位置 - 消息）。
+- 与 Python `swanlab/sdk/internal/pkg/console` 的镜像关系必须保持：`Info`/`Debug`/`Warning`/`Error` 语义、`SWANLAB_DEBUG` 和 `NO_COLOR` 环境变量、loguru 风格格式（时间戳 | 级别 | 位置 - 消息）。
 - `console.Init`/`Reset` 和 `log.Init`/`Reset` 必须保持对称。`Logger` 持有文件句柄，Go 无析构函数，重新绑定前必须先 `Reset` 关闭旧句柄。
 - 日志文件权限强制 0600（`os.Chmod` 不受 umask 影响）；轮转（`maxBytes` × `backupCount`）保持备份链完整。
 - 内存缓冲上限（`memoryCapacity`）超出时丢弃最旧记录，不能无界增长。
 - `console.mu`（终端写入互斥）和 `log.Logger.mu`（文件写入互斥）必须序列化输出，且不在快速路径死锁。
 - `callerLocation` 必须跳过 `console` 包自身的栈帧；保留 `shortFunc` 的截断逻辑。
-- `Trace` 必须处理 nil error；终端显示短消息，诊断日志文件额外记录完整 goroutine 栈（`debug.Stack()`）。
-- 修改日志级别方法（`Debug`/`Info`/`Warning`/`Error`/`Critical`）时保持级别名义化设计——当前均原样写入 msg，对应 Python 仅输出消息的 formatter。
+- 修改日志级别方法（`Debug`/`Info`/`Warning`/`Error`）时保持级别名义化设计——当前均原样写入 msg，对应 Python 仅输出消息的 formatter。
 - 测试用 `New()` 构造独立实例以隔离；包级 `std` 默认实例的测试用 `Reset`/`Init` 前后清理。
 
 ## Protobuf 与生成代码

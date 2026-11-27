@@ -19,7 +19,7 @@ from swanlab.exceptions import AuthenticationError
     "-r",
     is_flag=True,
     default=False,
-    help="Relogin to the swanlab cloud, it will recover the token file.",
+    help="Relogin to the SwanLab online service, it will recover the token file.",
 )
 @click.option(
     "--api-key",
@@ -34,7 +34,7 @@ from swanlab.exceptions import AuthenticationError
     "-h",
     default=None,
     type=str,
-    help="The host of the swanlab server.",
+    help="The host of the SwanLab online service.",
 )
 @click.option("--local", is_flag=True, help="Login to local (save .swanlab in current directory)")
 def login(api_key: str, relogin: bool, host: str, local: bool):

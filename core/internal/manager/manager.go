@@ -1,0 +1,545 @@
+package manager
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"sync"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/swanhubx/swanlab/core/internal/client"
+	"github.com/swanhubx/swanlab/core/internal/cron/health"
+	"github.com/swanhubx/swanlab/core/internal/pkg/console"
+	operationv1 "github.com/swanhubx/swanlab/core/proto/swanlab/operation/v1"
+	runv1 "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
+)
+
+var (
+	// ErrEmptySessionID 表示未提供有效的 session_id。
+	ErrEmptySessionID = errors.New("session_id must not be empty")
+	// ErrSessionNotFound 表示请求的 session_id 不存在或已被确认释放。
+	ErrSessionNotFound = errors.New("unknown or released session_id")
+	// ErrRunNotFinished 表示会话尚未排空，不能提前确认释放。
+	ErrRunNotFinished = errors.New("run has not been drained for this handle")
+	// ErrRunFailed 表示会话的收尾序列失败，不能按成功路径释放。
+	ErrRunFailed = errors.New("run finish failed")
+	// ErrNotRunning 表示会话已停止接受公共提交（排空中、已排空或收尾失败）。
+	ErrNotRunning = errors.New("session is not accepting records")
+	// ErrStoreUnavailable 表示本地存储已降级，StoreOnly 会话无法落盘，重试不会成功。
+	ErrStoreUnavailable = errors.New("local store is unavailable")
+	// ErrOverloaded 表示入口通道或上传配额在等待上限内没有腾出空间，可重试。
+	ErrOverloaded = errors.New("session intake is overloaded")
+	// ErrInvalidRecord 表示记录结构不合法（nil、空 key、未知 save 类型等）。
+	ErrInvalidRecord = errors.New("invalid record")
+	// ErrRequestTooLarge 表示单次 RPC 超过 record_batch 或 intake 通道单批容量。
+	// 日志与 CUSTOM Save 无法跨块去重，必须在接纳前整体拒绝，重试不会成功。
+	ErrRequestTooLarge = errors.New("request exceeds record_batch limit")
+	// ErrTooManySessions 表示会话数已达上限，需要先释放已结束的会话。
+	ErrTooManySessions = errors.New("session registry is full")
+	// ErrInvalidSettings 表示启动配置不合法，属于调用方参数错误。
+	ErrInvalidSettings = errors.New("invalid run settings")
+	// ErrInvalidStartRecord 表示启动记录本身不合法（nil 或未知 resume 模式）。
+	// 云端返回的元数据不完整属于协议错误，由 client.ErrInvalidResponse 表示。
+	ErrInvalidStartRecord = errors.New("invalid start record")
+	// ErrInvalidFinishRecord 表示未提供结束记录，属于调用方参数错误。
+	ErrInvalidFinishRecord = errors.New("finish record must not be nil")
+	// ErrServerUnreachable 表示启动预检无法访问 swanlab-server，快速失败避免认证重试堆积。
+	ErrServerUnreachable = errors.New("SwanLab online service is unreachable")
+)
+
+const (
+	// maxSessions 是单个 core 同时存在的会话上限。取值远高于单机多 rank 的进程数，
+	// 触顶通常意味着调用方没有释放会话（例如循环 init 未 finish），此时明确失败
+	// 而不是让注册表无限增长。
+	maxSessions = 512
+
+	// releasedCapacity 是已释放 session_id 的 FIFO 缓存上限，用于幂等 Confirm 重发。
+	releasedCapacity = 128
+
+	// invalidateCleanupTimeout 是 handler panic 触发会话失效后异步排空与清理的超时预算。
+	invalidateCleanupTimeout = 10 * time.Second
+)
+
+// releasedCache 记录已释放 session_id 的最终 Confirm 结果，按插入顺序淘汰最旧条目。
+// 同时缓存成功与永久失败释放结果，保证重复 Confirm 返回一致响应。
+type releasedCache struct {
+	entries map[string]ConfirmResult
+	order   []string
+	next    int
+}
+
+func newReleasedCache() releasedCache {
+	return releasedCache{entries: make(map[string]ConfirmResult, releasedCapacity)}
+}
+
+func (c *releasedCache) get(id string) (ConfirmResult, bool) {
+	res, ok := c.entries[id]
+	return res, ok
+}
+
+func (c *releasedCache) has(id string) bool {
+	_, ok := c.entries[id]
+	return ok
+}
+
+func (c *releasedCache) add(id string, res ConfirmResult) {
+	if _, ok := c.entries[id]; ok {
+		return
+	}
+	if len(c.order) < releasedCapacity {
+		c.order = append(c.order, id)
+		c.entries[id] = res
+		return
+	}
+	delete(c.entries, c.order[c.next])
+	c.order[c.next] = id
+	c.entries[id] = res
+	c.next = (c.next + 1) % releasedCapacity
+}
+
+// Options 是 Manager 的构造参数。
+type Options struct {
+	// HTTP 配置共享连接池、重试与鉴权探活行为。
+	HTTP client.Options
+}
+
+// ConfirmResult 是 Confirm 的业务响应：释放失败不是 RPC 错误，而是携带
+// 本地副本完整性提示的 success=false（可重试失败保留会话供下一次重试，永久接入失败会释放并缓存失败结果）。
+type ConfirmResult struct {
+	// Message 是返回给 Python 客户端的提示文案。
+	Message string
+	// ReleaseFailed 表示云端实验释放未成功或接入永久失败。
+	ReleaseFailed bool
+	// Retryable 表示失败属于网络/超时等可重试错误，调用方可安全重发 Confirm。
+	Retryable bool
+	// Released 表示会话已从注册表移除并清理资源；ReleaseFailed 与 Released 可同时为 true。
+	Released bool
+}
+
+// Manager 维护 session_id 到会话的映射注册表，并统一编排 Run 级的生命周期。
+//
+// 注册表锁只用于定位、插入与移除会话；排空等待、stop_experiment 等可能阻塞的动作
+// 一律在锁外执行。
+type Manager struct {
+	mu                  sync.RWMutex
+	sessions            map[string]*Session
+	released            releasedCache
+	factory             *client.Factory
+	invalidateCtx       context.Context
+	invalidateCancel    context.CancelFunc
+	invalidateWg        sync.WaitGroup
+	invalidationsClosed bool
+	// healthReg 按站点共享探针，跨会话复用同一站点的健康状态。
+	healthReg *health.Registry
+	// attachTiming 允许单测缩短退避节奏，生产环境为零值（走默认常量）。
+	attachTiming attachTiming
+}
+
+// New 创建并初始化会话管理器实例。
+func New(opts Options) *Manager {
+	invalidateCtx, invalidateCancel := context.WithCancel(context.Background())
+	return &Manager{
+		sessions:         make(map[string]*Session),
+		released:         newReleasedCache(),
+		factory:          client.NewFactory(opts.HTTP),
+		invalidateCtx:    invalidateCtx,
+		invalidateCancel: invalidateCancel,
+		healthReg:        health.NewRegistry(nil),
+	}
+}
+
+// install 生成 session_id 并把已装配完成的会话插入注册表。
+// 插入前再次校验容量，避免装配期间其它会话占满槽位。
+func (m *Manager) install(s *Session) (string, error) {
+	id, err := uuid.NewV7()
+	if err != nil {
+		return "", fmt.Errorf("generate session id: %w", err)
+	}
+	sessionID := id.String()
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if len(m.sessions) >= maxSessions {
+		return "", fmt.Errorf("%w: limit %d", ErrTooManySessions, maxSessions)
+	}
+	m.sessions[sessionID] = s
+	return sessionID, nil
+}
+
+// hasCapacity 在装配前做一次快速容量预检，避免为注定失败的会话申请外部资源。
+func (m *Manager) hasCapacity() bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return len(m.sessions) < maxSessions
+}
+
+// DeliverRunFinish 执行指定会话的本地收尾（RUNNING → DRAINING）：
+// 停后台补投与文件监听、落盘 FinishRecord 并关闭刷盘本地 store；
+// online 模式随后启动后台协程继续补投并关闭上传通道，Confirm 等待其排空后释放会话。
+func (m *Manager) DeliverRunFinish(ctx context.Context, sessionID string, rec *runv1.FinishRecord) error {
+	if sessionID == "" {
+		return ErrEmptySessionID
+	}
+	if rec == nil {
+		return ErrInvalidFinishRecord
+	}
+	s, err := m.session(sessionID)
+	if err != nil {
+		return err
+	}
+	return s.finish(ctx, rec)
+}
+
+// State 获取指定会话的当前生命周期状态快照。
+func (m *Manager) State(sessionID string) (RunState, error) {
+	s, err := m.session(sessionID)
+	if err != nil {
+		return 0, err
+	}
+	return s.stateSnapshot(), nil
+}
+
+// Stats 返回指定会话的上传进度快照；计数由 tracker 维护，不持注册表锁。
+func (m *Manager) Stats(sessionID string) (*operationv1.OperationStats, error) {
+	s, err := m.session(sessionID)
+	if err != nil {
+		return nil, err
+	}
+	return s.snapshot(), nil
+}
+
+// confirmOKMessage 是成功释放时返回给 Python 客户端的固定文案。
+const confirmOKMessage = "OK"
+
+// Confirm 等待会话排空并上报终态释放会话资源。
+//
+// 注册表只在定位会话和最终移除时持锁；排空等待与释放钩子都在锁外执行，
+// 避免网络请求阻塞其它会话。并发 Confirm 由 per-session 的 confirmMu 串行化，
+// 只有第一个调用会执行释放钩子，其余调用命中 released 缓存直接成功。
+//
+// online 模式下的积压补传、崩溃日志入队与关闭 intake 由 DeliverRunFinish 后的后台协程推进；
+// 会话处于 FAILED 时在 confirmMu 内续跑未完成的收尾步骤。
+//
+// stop_experiment 失败不返回 RPC 错误，而是返回 ReleaseFailed=true 与按本地
+// 副本完整性生成的提示文案，会话保留在注册表中供下一次 Confirm 重试。
+func (m *Manager) Confirm(ctx context.Context, sessionID string) (ConfirmResult, error) {
+	if sessionID == "" {
+		return ConfirmResult{}, ErrEmptySessionID
+	}
+	s, cached, released, err := m.lookup(sessionID)
+	if err != nil {
+		return ConfirmResult{}, err
+	}
+	if released {
+		return cached, nil
+	}
+	if err = s.waitDrained(ctx); err != nil {
+		return ConfirmResult{}, err
+	}
+
+	s.confirmMu.Lock()
+	defer s.confirmMu.Unlock()
+
+	// 等排空期间其它 Confirm 可能已经完成释放。
+	s, cached, released, err = m.lookup(sessionID)
+	if err != nil {
+		return ConfirmResult{}, err
+	}
+	if released {
+		return cached, nil
+	}
+	if s.isPermanentAttachFailure() && !s.hasCloudResources() {
+		return m.confirmPermanentAttachFailure(ctx, sessionID, s)
+	}
+	switch s.stateSnapshot() {
+	case RunStateFailed:
+		// 收尾序列被中断：先续跑 FinishRecord 落盘、error_log 入队与 Intake.Close，
+		// 全部成功后才允许上报终态并释放会话。
+		if err = s.resumeFinish(ctx); err != nil {
+			return ConfirmResult{}, err
+		}
+	case RunStateDrained:
+		// Shutdown 只做上传排空、不写 FinishRecord，这类会话不能按成功路径释放。
+		if !s.finishCommittedNow() {
+			return ConfirmResult{}, fmt.Errorf("%w: run drained without a finish record", ErrRunFailed)
+		}
+	default:
+		return ConfirmResult{}, ErrRunNotFinished
+	}
+
+	// 预算暂停会把记录留在本地，此时不得上报成功终态。
+	if s.intake != nil {
+		if paused, seq := s.intake.PauseState(); paused {
+			return ConfirmResult{}, fmt.Errorf(
+				"%w: uploads paused at store seq %d; records were not delivered", ErrRunFailed, seq)
+		}
+	}
+
+	// 与 Python 对齐：排空成功后先停心跳，再上报实验终态；失败时心跳保持停止，
+	// 会话保留供重试，避免重试期间继续发送心跳。
+	if hb := s.heartbeat(); hb != nil {
+		hb.Stop(ctx)
+		// 心跳等待可能耗尽 RPC 预算，ctx 已失效时不再发 stop_experiment。
+		if err = ctx.Err(); err != nil {
+			return ConfirmResult{}, err
+		}
+	}
+	if release := s.releaseFn(); release != nil {
+		if err = release(ctx); err != nil {
+			console.Warningf("confirm: stop experiment %q: %v", sessionID, err)
+			// 只把网络/超时类失败标记为可重试；4xx 等确定性失败重发也不会成功。
+			retryable := client.IsRetryable(err) || errors.Is(err, context.DeadlineExceeded)
+			return ConfirmResult{Message: s.confirmMessage(), ReleaseFailed: true, Retryable: retryable}, nil
+		}
+	}
+	if up := s.uploader(); up != nil {
+		_ = up.Close()
+	}
+	s.stopOnlineDrain()
+	// 先停止连接任务，再取消会话 context，避免它继续访问已经释放的站点和存储资源。
+	s.stopAttach()
+	if s.cancel != nil {
+		s.cancel()
+	}
+	s.closeHealth()
+
+	result := ConfirmResult{Message: confirmOKMessage, Released: true}
+	m.mu.Lock()
+	delete(m.sessions, sessionID)
+	m.released.add(sessionID, result)
+	m.mu.Unlock()
+	return result, nil
+}
+
+// confirmPermanentAttachFailure 在永久接入失败后完成本地清理并释放会话，同时返回确定性失败响应。
+func (m *Manager) confirmPermanentAttachFailure(ctx context.Context, sessionID string, s *Session) (ConfirmResult, error) {
+	switch s.stateSnapshot() {
+	case RunStateFailed:
+	case RunStateDraining, RunStateDrained:
+		if !s.finishCommittedNow() {
+			return ConfirmResult{}, fmt.Errorf("%w: run drained without a finish record", ErrRunFailed)
+		}
+	default:
+		return ConfirmResult{}, ErrRunNotFinished
+	}
+
+	s.stopOnlineDrain()
+	s.stopAttach()
+	if err := s.cleanupUnattached(ctx); err != nil {
+		return ConfirmResult{}, err
+	}
+	if s.cancel != nil {
+		s.cancel()
+	}
+	s.closeHealth()
+
+	_, _, attachErr := s.cloudStatus()
+	result := ConfirmResult{
+		Message:       s.attachFailureConfirmMessage(attachErr),
+		ReleaseFailed: true,
+		Retryable:     false,
+		Released:      true,
+	}
+	m.mu.Lock()
+	delete(m.sessions, sessionID)
+	m.released.add(sessionID, result)
+	m.mu.Unlock()
+	return result, nil
+}
+
+// DisconnectSession 在客户端异常断连后先有界排空指定会话再释放注册表槽位。
+//
+// 不合成 FinishRecord，也不上报 stop_experiment，且不写入 Confirm 专用的 released 缓存——
+// 避免断连清理后重试的 ConfirmRunFinish 误判为已成功释放；重复断连由 ErrSessionNotFound 兜底保持幂等。
+// 若排空失败，仍强制关闭 uploader 避免协程泄漏，并保留可诊断记录。
+func (m *Manager) DisconnectSession(ctx context.Context, sessionID string) error {
+	if sessionID == "" {
+		return ErrEmptySessionID
+	}
+	s, _, released, err := m.lookup(sessionID)
+	if err != nil {
+		if errors.Is(err, ErrSessionNotFound) {
+			return nil
+		}
+		return err
+	}
+	if released {
+		return nil
+	}
+
+	// 与 Confirm 串行化释放阶段，避免断连清理与 stop_experiment 并发执行。
+	s.confirmMu.Lock()
+	defer s.confirmMu.Unlock()
+
+	s, _, released, err = m.lookup(sessionID)
+	if err != nil {
+		if errors.Is(err, ErrSessionNotFound) {
+			return nil
+		}
+		return err
+	}
+	if released {
+		return nil
+	}
+
+	drainErr := drainSession(ctx, sessionID, s, "disconnect cleanup")
+
+	m.mu.Lock()
+	if m.sessions[sessionID] == s {
+		delete(m.sessions, sessionID)
+	}
+	m.mu.Unlock()
+	return drainErr
+}
+
+// Invalidate 在 handler panic 等异常路径下立即将指定会话从注册表中摘除（使后续 RPC 快速返回 NotFound），
+// 并在带超时的后台协程中异步排空和释放会话资源。
+func (m *Manager) Invalidate(sessionID string) {
+	if sessionID == "" {
+		return
+	}
+	m.mu.Lock()
+	s, ok := m.sessions[sessionID]
+	if !ok {
+		m.mu.Unlock()
+		return
+	}
+	delete(m.sessions, sessionID)
+	if m.invalidationsClosed {
+		m.mu.Unlock()
+		return
+	}
+	m.invalidateWg.Add(1)
+	m.mu.Unlock()
+
+	go func() {
+		defer m.invalidateWg.Done()
+		ctx, cancel := context.WithTimeout(m.invalidateCtx, invalidateCleanupTimeout)
+		defer cancel()
+		s.confirmMu.Lock()
+		defer s.confirmMu.Unlock()
+		_ = drainSession(ctx, sessionID, s, "invalidate cleanup")
+	}()
+}
+
+// drainSession 排空会话并关闭 uploader；排空失败时标记会话失败并输出告警。
+func drainSession(ctx context.Context, sessionID string, s *Session, scope string) error {
+	drainErr := s.shutdown(ctx)
+	if up := s.uploader(); up != nil {
+		if closeErr := up.Close(); closeErr != nil {
+			drainErr = errors.Join(drainErr, closeErr)
+		}
+	}
+	if drainErr == nil {
+		return nil
+	}
+	s.fail(drainErr)
+	runID := s.cfg.RunID
+	if s.run != nil && s.run.RunID != "" {
+		runID = s.run.RunID
+	}
+	console.Warningf("%s: drain session %q (run %q) failed: %v", scope, sessionID, runID, drainErr)
+	return drainErr
+}
+
+// SessionCount 返回当前仍在注册表中的活跃/未释放会话数。
+func (m *Manager) SessionCount() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return len(m.sessions)
+}
+
+// Shutdown 有界回收全部活跃会话，供进程退出钩子调用。
+//
+// 每个会话并发执行「DRAINING → 停 watcher/heartbeat → 关本地 store →
+// Intake.Close → RequestFinish → 等待排空」，不调用 stop_experiment；
+// 总等待受 ctx 限制，超时后强制关闭所有 uploader 并告警。
+func (m *Manager) Shutdown(ctx context.Context) error {
+	m.mu.Lock()
+	m.invalidationsClosed = true
+	sessions := make([]*Session, 0, len(m.sessions))
+	for _, s := range m.sessions {
+		sessions = append(sessions, s)
+	}
+	m.mu.Unlock()
+
+	var wg sync.WaitGroup
+	for _, s := range sessions {
+		wg.Add(1)
+		go func(s *Session) {
+			defer wg.Done()
+			_ = s.shutdown(ctx)
+		}(s)
+	}
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		m.invalidateWg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-ctx.Done():
+		m.invalidateCancel()
+		if len(sessions) > 0 {
+			console.Warningf("shutdown: %d active session(s) still draining, forcing uploader close", len(sessions))
+		}
+	}
+
+	// 无论是否在预算内排空，都释放 uploader 的 worker 协程；已排空时 Close 为 no-op。
+	for _, s := range sessions {
+		if up := s.uploader(); up != nil {
+			if err := up.Close(); err != nil {
+				console.Warningf("shutdown: close uploader: %v", err)
+			}
+		}
+	}
+
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// Close 释放 Manager 持有的进程级资源（HTTP 连接池）并收尾异步失效清理协程，可重复调用。
+func (m *Manager) Close() error {
+	m.mu.Lock()
+	m.invalidationsClosed = true
+	m.mu.Unlock()
+	m.invalidateCancel()
+	m.invalidateWg.Wait()
+	return m.factory.Close()
+}
+
+// lookup 在同一把读锁内区分「已释放」与「已注册」，避免两次读取之间被其它
+// Confirm 移除而产生误报的 ErrSessionNotFound。
+func (m *Manager) lookup(sessionID string) (*Session, ConfirmResult, bool, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if cached, ok := m.released.get(sessionID); ok {
+		return nil, cached, true, nil
+	}
+	s, ok := m.sessions[sessionID]
+	if !ok {
+		return nil, ConfirmResult{}, false, ErrSessionNotFound
+	}
+	return s, ConfirmResult{}, false, nil
+}
+
+func (m *Manager) session(sessionID string) (*Session, error) {
+	if sessionID == "" {
+		return nil, ErrEmptySessionID
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	s, ok := m.sessions[sessionID]
+	if !ok {
+		return nil, ErrSessionNotFound
+	}
+	return s, nil
+}

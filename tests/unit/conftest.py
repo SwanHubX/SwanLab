@@ -36,6 +36,35 @@ def transport_cleanup(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def core_process_cleanup(monkeypatch):
+    """确认每个测试用例结束时没有遗留通过 spawn_core 启动的活跃 swanlab-core 子进程。"""
+    import swanlab.sdk.internal.core_go.launcher as launcher_module
+    import swanlab.sdk.internal.core_go.process as process_module
+    from swanlab.sdk.internal.core_go.process import reap_process
+
+    spawned = []
+    orig_spawn = process_module.spawn_core
+
+    def tracked_spawn(*args, **kwargs):
+        proc = orig_spawn(*args, **kwargs)
+        if proc not in spawned:
+            spawned.append(proc)
+        return proc
+
+    monkeypatch.setattr(process_module, "spawn_core", tracked_spawn)
+    monkeypatch.setattr(launcher_module, "spawn_core", tracked_spawn)
+    yield
+    leaked = [proc for proc in spawned if proc.poll() is None]
+    for proc in leaked:
+        try:
+            proc.terminate()
+        except OSError:
+            pass
+        reap_process(proc)
+    assert not leaked, f"Test left active swanlab-core process(es): {[proc.pid for proc in leaked]}"
+
+
+@pytest.fixture(autouse=True)
 def isolate_sdk_environment(tmp_path, monkeypatch):
     """
     自动为每个测试用例隔离 SDK 全局环境，确保单个用例失败后不污染后续用例。
@@ -53,11 +82,13 @@ def isolate_sdk_environment(tmp_path, monkeypatch):
 
     import swanlab
     from swanlab.sdk.internal.context.components.callbacker import global_callbacker
+    from swanlab.sdk.internal.context.components.core import reset_fallback_warning
     from swanlab.sdk.internal.core_python import client
-    from swanlab.sdk.internal.pkg import console
+    from swanlab.sdk.internal.pkg import console, helper
     from swanlab.sdk.internal.run import clear_run
     from swanlab.sdk.internal.run.components.config import reset as reset_config
     from swanlab.sdk.internal.settings import Settings, set_global_settings
+    from swanlab.sdk.protocol import CoreEnum, ProbeEnum
 
     # 1. 路径与环境变量隔离
     # 清理可能干扰测试的常见环境变量
@@ -100,6 +131,11 @@ def isolate_sdk_environment(tmp_path, monkeypatch):
     # 7. 清理 callbacker
     for callback in global_callbacker.registered_callbacks:
         global_callbacker.remove_callback(callback.name)
+
+    # 8. 恢复默认后端实现并重置回退告警状态，避免 require() 调用跨测试污染
+    helper.set_core_impl(CoreEnum.CORE_PYTHON)
+    helper.set_probe_impl(ProbeEnum.PROBE_PYTHON)
+    reset_fallback_warning()
 
     yield
 

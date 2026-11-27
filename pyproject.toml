@@ -49,6 +49,7 @@ dependencies = [
     "protobuf>=6.31.1,!=6.31.0,<7; python_version == '3.9' and sys_platform == 'linux'",
     "protobuf>=6.31.1,!=6.31.0,<7; python_version > '3.9' and sys_platform == 'linux'",
     "protobuf>=6.31.1,!=6.31.0,<7; sys_platform != 'linux'",
+    "grpcio>=1.78.0,<2",
     "rich>=13.6.0",
     "pydantic-settings>=2.8.1",
     "orjson<=3.11.5; python_version == '3.9'",
@@ -81,6 +82,7 @@ s3 = [
 [dependency-groups]
 dev = [
     "build",
+    "hatchling>=1.18",
     "pytest",
     "pytest-mock",
     "pytest-benchmark",
@@ -113,8 +115,24 @@ swanlab = "swanlab.cli:cli"
 "Documentation" = "https://docs.swanlab.cn/zh/guide_cloud/general/what-is-swanlab.html"
 
 [build-system]
-requires = ["hatchling", "hatch-fancy-pypi-readme>=22.5.0"]
+# hatchling>=1.18 支持自定义构建 hooks 的最低兼容版本（含 tag/artifacts ）
+requires = ["hatchling>=1.18", "hatch-fancy-pypi-readme>=22.5.0"]
 build-backend = "hatchling.build"
+
+# 设置 SWANLAB_BUILD_PLATFORM 时交叉编译
+[tool.hatch.build.hooks.custom]
+path = "hatch_build.py"
+
+# 通用 wheel 不带 core 二进制：以前只靠 .gitignore 挡住 swanlab/bin，
+# 在没有 .gitignore 的目录里打包时，本地编好的二进制会被误打进 wheel。
+# 平台 wheel 的二进制由 hatch_build.py 单独加入，不受这个 exclude 影响。
+[tool.hatch.build.targets.wheel]
+exclude = ["/swanlab/bin"]
+
+# sdist 不带 Go 源码与二进制：从 sdist 打包出来的一律是纯 Python 的包，
+# 带二进制的平台 wheel 需要在 git 仓库里构建。
+[tool.hatch.build.targets.sdist]
+exclude = ["/core", "/swanlab/bin"]
 
 
 [tool.hatch.version]

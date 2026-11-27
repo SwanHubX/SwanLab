@@ -13,8 +13,8 @@ from typing import Callable, Dict, Literal, Optional, Tuple
 from swanlab.sdk.protocol import CoreEnum, ProbeEnum
 
 require_env = os.environ.get("SWANLAB_REQUIRE", "")
-# probe/core 实现选择，进程级全局状态，默认 Python 实现
-# 过渡期通过 swanlab.require("core"|"probe") 或 SWANLAB_REQUIRE 环境变量切换
+# probe 默认使用 Python
+# core 默认使用 Python 内置实现（可通过 core 切换到 Go 实现）。
 _probe_impl: ProbeEnum = ProbeEnum.PROBE_PYTHON
 _core_impl: CoreEnum = CoreEnum.CORE_PYTHON
 

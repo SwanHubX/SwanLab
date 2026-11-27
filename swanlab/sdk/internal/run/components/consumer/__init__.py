@@ -8,8 +8,10 @@
 import math
 import queue
 import threading
+import time
 from abc import ABC
-from typing import Any, Dict, List, Tuple, Union
+from collections import deque
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, MediaRecord, ScalarRecord, ScalarValue
@@ -24,7 +26,7 @@ from swanlab.sdk.internal.bus.events import (
     MetricLogEvent,
 )
 from swanlab.sdk.internal.context import RunContext
-from swanlab.sdk.internal.pkg import console, helper, safe
+from swanlab.sdk.internal.pkg import console, helper, safe, throttle
 from swanlab.sdk.internal.run.transforms import Scalar
 
 from .builder import RecordBuilder, is_scalar_value
@@ -38,6 +40,45 @@ HistogramBatch = List[HistogramRecord]
 SaveBatch = List[SaveRecord]
 BatchTuple = Tuple[LogBatch, ColumnBatch, ScalarBatch, MediaBatch, HistogramBatch, SaveBatch]
 
+# 消费者触发刷盘的默认批次阈值
+DEFAULT_RECORD_BATCH: int = 100
+# 标量与列定义单次 gRPC 提交的最大切片数，在不触及 4 MiB 上限的前提下降低高频日志往返次数
+DEFAULT_RPC_BATCH: int = 2_000
+# 退出阶段默认阻塞等待直到积压记录全部被 Core 接收（None 表示不设上限，对齐 core_python finish(timeout=None)）
+DEFAULT_STOP_FLUSH_TIMEOUT: Optional[float] = None
+# 重试期间允许在内存中滞留的最大记录数与 protobuf 字节数
+DEFAULT_MAX_BUFFERED_RECORDS: int = 50_000
+DEFAULT_MAX_BUFFERED_BYTES: int = 128 << 20
+# 可重试失败的退避：base 起翻倍，封顶 max；失败期间不阻塞事件循环。
+DEFAULT_RETRY_BASE_DELAY: float = 0.1
+DEFAULT_RETRY_MAX_DELAY: float = 2.0
+# 同类告警的最小间隔（秒）
+_DROP_WARNING_INTERVAL: float = 10.0
+# stop() 投递停止哨兵时的短轮询间隔，避免消费线程退出且队列满时卡死 finish()
+_STOP_PUT_POLL_INTERVAL: float = 0.5
+# 幂运算上限，避免连续失败时把指数算爆。
+_MAX_BACKOFF_EXPONENT: int = 16
+
+
+def _is_retryable(exc: BaseException) -> bool:
+    """只有实现显式标记 retryable=True 的异常才重试；未知异常按确定性失败丢弃。"""
+    return getattr(exc, "retryable", False) is True
+
+
+def _is_too_large(exc: BaseException) -> bool:
+    """单次请求超过传输上限：拆小或丢弃，重试无意义。"""
+    return getattr(exc, "too_large", False) is True
+
+
+def _record_label(record: Any) -> str:
+    """取记录里能定位问题的标识：指标 key、列 key、文件名或日志行首。"""
+    for attr in ("key", "column_key", "name"):
+        value = getattr(record, attr, "")
+        if value:
+            return str(value)
+    line = str(getattr(record, "line", "") or "")
+    return line[:40] if line else "?"
+
 
 class ConsumerProtocol(ABC):
     """消费者协议"""
@@ -47,9 +88,30 @@ class ConsumerProtocol(ABC):
         ctx: RunContext,
         event_queue: RunQueue,
         flush_timeout: float = 0.5,
-        batch_size: int = 100,
+        batch_size: int = DEFAULT_RECORD_BATCH,
+        rpc_batch_size: Optional[int] = None,
+        stop_timeout: Optional[float] = 0.0,
+        retry_base_delay: float = DEFAULT_RETRY_BASE_DELAY,
+        retry_max_delay: float = DEFAULT_RETRY_MAX_DELAY,
+        clock: Callable[[], float] = time.monotonic,
+        sleep: Callable[[float], None] = time.sleep,
+        max_buffered_records: int = DEFAULT_MAX_BUFFERED_RECORDS,
+        max_buffered_bytes: int = DEFAULT_MAX_BUFFERED_BYTES,
     ):
-        _ = (ctx, event_queue, flush_timeout, batch_size)
+        _ = (
+            ctx,
+            event_queue,
+            flush_timeout,
+            batch_size,
+            rpc_batch_size,
+            stop_timeout,
+            retry_base_delay,
+            retry_max_delay,
+            clock,
+            sleep,
+            max_buffered_records,
+            max_buffered_bytes,
+        )
 
     def start(self) -> None: ...
 
@@ -71,9 +133,30 @@ class BackgroundConsumer(ConsumerProtocol):
         ctx: RunContext,
         event_queue: RunQueue,
         flush_timeout: float = 0.5,
-        batch_size: int = 100,
+        batch_size: int = DEFAULT_RECORD_BATCH,
+        rpc_batch_size: Optional[int] = None,
+        stop_timeout: Optional[float] = 0.0,
+        retry_base_delay: float = DEFAULT_RETRY_BASE_DELAY,
+        retry_max_delay: float = DEFAULT_RETRY_MAX_DELAY,
+        clock: Callable[[], float] = time.monotonic,
+        sleep: Callable[[float], None] = time.sleep,
+        max_buffered_records: int = DEFAULT_MAX_BUFFERED_RECORDS,
+        max_buffered_bytes: int = DEFAULT_MAX_BUFFERED_BYTES,
     ):
-        super().__init__(ctx, event_queue, flush_timeout, batch_size)
+        super().__init__(
+            ctx,
+            event_queue,
+            flush_timeout,
+            batch_size,
+            rpc_batch_size,
+            stop_timeout,
+            retry_base_delay,
+            retry_max_delay,
+            clock,
+            sleep,
+            max_buffered_records,
+            max_buffered_bytes,
+        )
         self._ctx = ctx
         self._queue = event_queue
         # builder / resolver 均由 consumer 独占创建与维护，所有状态访问都发生在本线程内
@@ -82,9 +165,23 @@ class BackgroundConsumer(ConsumerProtocol):
         self._core = ctx.core
         self._flush_timeout = flush_timeout
         self._batch_size = batch_size
+        self._rpc_batch_size = max(batch_size, rpc_batch_size) if rpc_batch_size is not None else batch_size
+        self._stop_timeout: Optional[float] = None if stop_timeout is None else max(0.0, stop_timeout)
+        # 重试调度：_retry_at 为空表示可以立即 flush
+        self._retry_base_delay = retry_base_delay
+        self._retry_max_delay = retry_max_delay
+        self._clock = clock
+        self._sleep = sleep
+        self._retry_at: Optional[float] = None
+        self._retry_attempt = 0
         self._thread = threading.Thread(target=self._run, name="SwanLab·Specter", daemon=True)
+        self._started = False
         # 回调器，负责触发回调
         self._callbacker = self._ctx.callbacker
+        self._max_buffered_records = max_buffered_records
+        self._max_buffered_bytes = max_buffered_bytes
+        self._buffered_bytes = 0
+        self._drop_throttle = throttle.WarningThrottle(_DROP_WARNING_INTERVAL, clock=self._clock)
 
         self._log_batch: LogBatch = []
         self._column_batch: ColumnBatch = []
@@ -95,13 +192,25 @@ class BackgroundConsumer(ConsumerProtocol):
 
     def start(self) -> None:
         self._thread.start()
+        # 必须在 start() 返回（子线程已进入 alive 状态）后再置位，避免并发 emit 误判为已退出。
+        self._started = True
 
     def join(self) -> None:
         if self._thread.is_alive():
             self._thread.join()
 
     def stop(self) -> None:
-        self._queue.put(_STOP)  # type: ignore[arg-type]
+        while self.accepting_events:
+            try:
+                self._queue.put(_STOP, timeout=_STOP_PUT_POLL_INTERVAL)  # type: ignore[arg-type]
+                return
+            except queue.Full:
+                continue
+
+    @property
+    def accepting_events(self) -> bool:
+        """启动前和运行中返回 True；线程退出后 emitter 快速丢弃新事件。"""
+        return not self._started or self._thread.is_alive()
 
     @property
     def _batch_len(self) -> int:
@@ -137,47 +246,125 @@ class BackgroundConsumer(ConsumerProtocol):
         self._media_batch = []
         self._histogram_batch = []
         self._save_batch = []
+        self._buffered_bytes = 0
         return batches
 
-    def _restore_batches(
-        self,
-        log_batch: LogBatch,
-        column_batch: ColumnBatch,
-        scalar_batch: ScalarBatch,
-        media_batch: MediaBatch,
-        histogram_batch: HistogramBatch,
-        save_batch: SaveBatch,
-    ) -> None:
+    def _restore_group(self, name: str, records: list) -> None:
         # 失败的旧数据插回队头，优先于 flush 期间新进来的数据重试
-        if log_batch:
-            self._log_batch[:0] = log_batch
-        if column_batch:
-            self._column_batch[:0] = column_batch
-        if scalar_batch:
-            self._scalar_batch[:0] = scalar_batch
-        if media_batch:
-            self._media_batch[:0] = media_batch
-        if histogram_batch:
-            self._histogram_batch[:0] = histogram_batch
-        if save_batch:
-            self._save_batch[:0] = save_batch
+        if name == "logs":
+            self._log_batch[:0] = records
+        elif name == "columns":
+            self._column_batch[:0] = records
+        elif name == "scalars":
+            self._scalar_batch[:0] = records
+        elif name == "media":
+            self._media_batch[:0] = records
+        elif name == "histograms":
+            self._histogram_batch[:0] = records
+        else:
+            self._save_batch[:0] = records
+        self._buffered_bytes += sum(record.ByteSize() for record in records)
+
+    def _append(self, batch: list, record: Any) -> None:
+        """统一维护缓冲上限；超限时丢弃新记录，避免训练线程被 RPC 故障阻塞。"""
+        size = record.ByteSize()
+        if self._batch_len + 1 > self._max_buffered_records or self._buffered_bytes + size > self._max_buffered_bytes:
+            dropped = self._drop_throttle.record()
+            if dropped > 0:
+                with console.skip_capture():
+                    console.warning(
+                        f"Dropping {dropped} buffered record(s): "
+                        f"consumer backlog exceeds {self._max_buffered_records} records "
+                        f"or {self._max_buffered_bytes} bytes"
+                    )
+            return
+        batch.append(record)
+        self._buffered_bytes += size
+
+    def _queue_timeout(self) -> float:
+        """把下一次 flush 时间折算成 queue.get 的等待上限，避免 sleep 轮询。"""
+        if self._retry_at is None:
+            return self._flush_timeout
+        remaining = self._retry_at - self._clock()
+        return max(0.0, min(self._flush_timeout, remaining))
+
+    def _retry_due(self) -> bool:
+        return self._retry_at is None or self._clock() >= self._retry_at
+
+    def _schedule_retry(self, exc: Exception) -> None:
+        self._retry_attempt += 1
+        exponent = min(self._retry_attempt - 1, _MAX_BACKOFF_EXPONENT)
+        delay = min(self._retry_max_delay, self._retry_base_delay * (2**exponent))
+        self._retry_at = self._clock() + delay
+        console.debug(f"Core upsert failed; retrying in {delay:.2f}s: {exc}", write_to_tty=False)
+
+    def _drain_before_stop(self) -> None:
+        # 退出前忽略退避；stop_timeout=None 时持续阻塞重试直到排空或遇确定性拒绝
+        self._retry_at = None
+        self._retry_attempt = 0
+        stall_deadline = None if self._stop_timeout is None else self._clock() + self._stop_timeout
+        while not self._batch_empty:
+            before = self._batch_len
+            self._flush()
+            if self._batch_empty:
+                break
+            if self._retry_at is None:
+                # 确定性失败丢弃了部分分片但同组仍有剩余片未发：继续推进直到排空或零进展
+                if self._batch_len < before:
+                    continue
+                break
+            if self._stop_timeout is not None and self._stop_timeout <= 0:
+                break
+            if self._batch_len < before:
+                if stall_deadline is not None and self._stop_timeout is not None:
+                    stall_deadline = self._clock() + self._stop_timeout
+                # Core 已恢复接收：下一轮从最小退避继续，避免单次大积压拖慢排空
+                self._retry_attempt = 0
+                self._retry_at = self._clock() + self._retry_base_delay
+            now = self._clock()
+            if stall_deadline is not None:
+                remaining = stall_deadline - now
+                if remaining <= 0:
+                    break
+                wait_for = min(max(0.0, self._retry_at - now), remaining)
+            else:
+                wait_for = max(0.0, self._retry_at - now)
+            if wait_for > 0:
+                self._sleep(wait_for)
 
     def _run(self) -> None:
+        stopping = False
         while True:
             with safe.block(message="SwanLab background logger thread error"):
                 try:
-                    event = self._queue.get(timeout=self._flush_timeout)
+                    event = self._queue.get(timeout=self._queue_timeout())
                 except queue.Empty:
-                    # 队列空闲一段时间后，若有积压数据则刷盘
-                    if not self._batch_empty:
+                    # 队列空闲：退避到期且仍有积压时刷盘
+                    if not self._batch_empty and self._retry_due():
                         self._flush()
                     continue
                 if event is _STOP:
-                    self._flush()
+                    stopping = True
+                else:
+                    self._handle_event(event)
+                    # 突发写入时一次聚拢待消费事件，降低高频小包 RPC 往返
+                    while self._batch_len < self._rpc_batch_size:
+                        try:
+                            next_event = self._queue.get_nowait()
+                        except queue.Empty:
+                            break
+                        if next_event is _STOP:
+                            stopping = True
+                            break
+                        self._handle_event(next_event)
+                if stopping:
+                    self._drain_before_stop()
                     break
-                self._handle_event(event)
-                if self._batch_full:
+                if self._batch_full and self._retry_due():
                     self._flush()
+        if not self._batch_empty:
+            with console.skip_capture():
+                console.warning(f"Core did not accept {self._batch_len} buffered record(s) before shutdown")
         # 线程退出时清理状态
         self._resolver.clear()
 
@@ -187,12 +374,12 @@ class BackgroundConsumer(ConsumerProtocol):
         elif isinstance(event, MetricDefineEvent):
             self._resolver.handle_define(event)
         elif isinstance(event, ConfigEvent):
-            self._save_batch.append(self._builder.build_config(event))
+            self._append(self._save_batch, self._builder.build_config(event))
         elif isinstance(event, LogEvent):
-            self._log_batch.append(self._builder.build_log(event))
+            self._append(self._log_batch, self._builder.build_log(event))
             console.debug(f"Buffered terminal log record: pending={len(self._log_batch)}", write_to_tty=False)
         elif isinstance(event, FileSaveEvent):
-            self._save_batch.append(self._builder.build_save(event))
+            self._append(self._save_batch, self._builder.build_save(event))
 
     def _handle_metric_log(self, event: MetricLogEvent) -> None:
         """处理指标日志事件：构建 scalar/media 记录；调用过 define_metric 时额外物化列定义，
@@ -315,7 +502,7 @@ class BackgroundConsumer(ConsumerProtocol):
                 concrete = self._resolver.resolve_concrete(key, metric_class)
                 col = self._resolver.materialize_column(key, metric_class, data_record.type)
                 if col is not None:
-                    self._column_batch.append(col)
+                    self._append(self._column_batch, col)
 
                 # 4.3 custom X 轴 first-writer-wins：同一 X 值上首次 Y 值为准
                 x_axis = concrete.effective.x_axis
@@ -351,62 +538,115 @@ class BackgroundConsumer(ConsumerProtocol):
                 )
                 # 注入值恒为标量（来自 cache 的 float）；isinstance 同时收窄 pyright 类型
                 if isinstance(injected_record, ScalarRecord):
-                    self._scalar_batch.append(injected_record)
+                    self._append(self._scalar_batch, injected_record)
 
     def _append_data_record(self, data_record: Union[ScalarRecord, MediaRecord, HistogramRecord]) -> None:
         """按类型把 data record 追加到对应批次。"""
         if isinstance(data_record, ScalarRecord):
-            self._scalar_batch.append(data_record)
+            self._append(self._scalar_batch, data_record)
         elif isinstance(data_record, HistogramRecord):
-            self._histogram_batch.append(data_record)
+            self._append(self._histogram_batch, data_record)
         else:
-            self._media_batch.append(data_record)
+            self._append(self._media_batch, data_record)
 
     def _flush(self) -> None:
         if self._batch_empty:
             return
+        self._retry_at = None
         log_batch, column_batch, scalar_batch, media_batch, histogram_batch, save_batch = self._take_batches()
-        # 某一步失败时，只回塞"当前未成功提交"的部分，避免重复写入
-        # 提交失败时静默显示在 debug 日志中，不打印到控制台
-        with safe.block(
-            message="Error when flushing batch",
-            write_to_tty=False,
-            on_error=lambda _: self._restore_batches(
-                log_batch, column_batch, scalar_batch, media_batch, histogram_batch, save_batch
-            ),
-        ):
-            if log_batch:
-                console.debug(f"Flushing log records to core: count={len(log_batch)}", write_to_tty=False)
-                self._core.upsert_logs(log_batch)
-                console.debug(f"Core log call completed: count={len(log_batch)}", write_to_tty=False)
-                self._callbacker.on_log_flush(log_batch)
-                log_batch = []
 
-            if column_batch:
-                # 一次 flush 内按 (key, type) coalesce，保留最后一条
-                coalesced: dict[tuple[str, int], ColumnRecord] = {}
-                for col in column_batch:
-                    coalesced[(col.column_key, col.column_type)] = col
-                coalesced_list = list(coalesced.values())
-                console.debug(f"Flushing column records to core: count={len(coalesced_list)}", write_to_tty=False)
-                self._core.upsert_columns(coalesced_list)
-                column_batch = []
+        restored: List[Tuple[str, list]] = []
+        retryable_error: Optional[Exception] = None
+        sent_any = False
+        small_chunk_size = max(1, self._batch_size)
+        bulk_chunk_size = max(small_chunk_size, self._rpc_batch_size)
 
-            if scalar_batch:
-                self._core.upsert_scalars(scalar_batch)
-                self._callbacker.on_scalar_flush(scalar_batch)
-                scalar_batch = []
+        def send(name: str, records: list, call: Callable[[list], None], *, limit: int = small_chunk_size) -> None:
+            """按分片上限提交，失败只回塞未成功的部分；超限分片对半拆开重发。"""
+            nonlocal retryable_error, sent_any
+            pending = deque(records[start : start + limit] for start in range(0, len(records), limit))
+            while pending:
+                chunk = pending.popleft()
+                try:
+                    call(chunk)
+                except Exception as exc:
+                    if _is_too_large(exc):
+                        if len(chunk) > 1:
+                            # 单次请求超过传输上限：对半拆开重发，别让一条超限记录带走同片其它记录
+                            half = len(chunk) // 2
+                            pending.appendleft(chunk[half:])
+                            pending.appendleft(chunk[:half])
+                        else:
+                            with console.skip_capture():
+                                console.warning(
+                                    f"Dropping {name} record '{_record_label(chunk[0])}': "
+                                    f"single record exceeds the transport limit: {exc}"
+                                )
+                        continue
+                    remaining = [record for group in pending for record in group]
+                    if _is_retryable(exc):
+                        if retryable_error is None:
+                            retryable_error = exc
+                        restored.append((name, chunk + remaining))
+                    else:
+                        # 确定性拒绝：只丢弃被拒绝的分片，剩余记录继续回塞
+                        with console.skip_capture():
+                            console.warning(
+                                f"Dropping {name} records after terminal failure: count={len(chunk)}: {exc}"
+                            )
+                        if remaining:
+                            restored.append((name, remaining))
+                    return
+                sent_any = True
 
-            if media_batch:
-                self._core.upsert_media(media_batch)
-                self._callbacker.on_media_flush(media_batch)
-                media_batch = []
+        # 分片前先 coalesce，避免同一列跨片重复上报
+        coalesced_columns: dict[tuple[str, int], ColumnRecord] = {}
+        for col in column_batch:
+            coalesced_columns[(col.column_key, col.column_type)] = col
 
-            if histogram_batch:
-                self._core.upsert_histograms(histogram_batch)
-                self._callbacker.on_histogram_flush(histogram_batch)
-                histogram_batch = []
+        send("logs", log_batch, self._send_logs)
+        send("columns", list(coalesced_columns.values()), self._send_columns, limit=bulk_chunk_size)
+        send("scalars", scalar_batch, self._send_scalars, limit=bulk_chunk_size)
+        send("media", media_batch, self._send_media)
+        send("histograms", histogram_batch, self._send_histograms)
+        send("saves", save_batch, self._send_saves)
 
-            if save_batch:
-                self._core.upsert_saves(save_batch)
-                save_batch = []
+        for name, records in restored:
+            self._restore_group(name, records)
+
+        if retryable_error is not None:
+            if sent_any:
+                # 已有分片成功说明 Core 仍在吞吐，重置退避计数避免部分推进却退避拉满
+                self._retry_attempt = 0
+            self._schedule_retry(retryable_error)
+        else:
+            self._retry_attempt = 0
+
+    def _send_logs(self, log_batch: LogBatch) -> None:
+        console.debug(f"Flushing log records to core: count={len(log_batch)}", write_to_tty=False)
+        self._core.upsert_logs(log_batch)
+        console.debug(f"Core log call completed: count={len(log_batch)}", write_to_tty=False)
+        with safe.block(message="log flush callback error"):
+            self._callbacker.on_log_flush(log_batch)
+
+    def _send_columns(self, column_batch: ColumnBatch) -> None:
+        console.debug(f"Flushing column records to core: count={len(column_batch)}", write_to_tty=False)
+        self._core.upsert_columns(column_batch)
+
+    def _send_scalars(self, scalar_batch: ScalarBatch) -> None:
+        self._core.upsert_scalars(scalar_batch)
+        with safe.block(message="scalar flush callback error"):
+            self._callbacker.on_scalar_flush(scalar_batch)
+
+    def _send_media(self, media_batch: MediaBatch) -> None:
+        self._core.upsert_media(media_batch)
+        with safe.block(message="media flush callback error"):
+            self._callbacker.on_media_flush(media_batch)
+
+    def _send_histograms(self, histogram_batch: HistogramBatch) -> None:
+        self._core.upsert_histograms(histogram_batch)
+        with safe.block(message="histogram flush callback error"):
+            self._callbacker.on_histogram_flush(histogram_batch)
+
+    def _send_saves(self, save_batch: SaveBatch) -> None:
+        self._core.upsert_saves(save_batch)

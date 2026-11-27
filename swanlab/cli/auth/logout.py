@@ -23,7 +23,7 @@ from swanlab.sdk.internal.settings import create_settings
 )
 @click.option("--local", is_flag=True, help="Logout from local login (remove .swanlab in current directory)")
 def logout(force: bool, local: bool):
-    """Logout from the SwanLab cloud."""
+    """Logout from the SwanLab online service."""
 
     # 1. 检查本地是否存在 API Key
     nrc_path = sdk.cmd_utils.get_nrc_path(save="local" if local else "root")
