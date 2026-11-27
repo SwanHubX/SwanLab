@@ -1,9 +1,10 @@
 import threading
 import time
+from concurrent.futures import Future
 from concurrent.futures import thread as futures_thread
 from pathlib import Path
 from types import SimpleNamespace
-from typing import cast
+from typing import List, Optional, cast
 from unittest.mock import MagicMock
 
 from swanlab.sdk.internal.pkg import console
@@ -142,8 +143,23 @@ def test_monitor_does_not_upsert_after_stop_timeout(monkeypatch, tmp_path):
 
 
 def test_monitor_collect_timeout_uses_shared_round_deadline(monkeypatch, tmp_path):
-    """单轮采集超时对所有采集器共享同一 deadline，而不是每个采集器各等一轮。"""
+    """单轮采集超时对所有采集器共享同一 deadline，而不是每个采集器各等一轮。
+
+    断言的是每个采集器实际拿到的剩余预算，而不是整轮的墙钟耗时：
+    ``Condition.wait(timeout)`` 在负载高时会明显超时返回（macOS CI 上实测可达 2 倍），
+    用 ``elapsed < 1.75 * COLLECT_TIMEOUT`` 之类的边界判断只会测到调度抖动。
+    """
     release = threading.Event()
+    collect_timeout = 0.12
+    # 记录每次等待拿到的剩余预算：共享 deadline 时第二轮预算已被第一轮耗尽
+    budgets: List[Optional[float]] = []
+    caller = threading.get_ident()
+    original_result = Future.result
+
+    def _record_result(self, timeout=None):
+        if threading.get_ident() == caller:
+            budgets.append(timeout)
+        return original_result(self, timeout=timeout)
 
     class _SlowCollector(CollectorProtocol):
         def collect(self):
@@ -179,17 +195,21 @@ def test_monitor_collect_timeout_uses_shared_round_deadline(monkeypatch, tmp_pat
     )
     monkeypatch.setattr("swanlab.sdk.internal.probe_python.monitor.Apple.new", lambda _shim: None)
     monkeypatch.setattr("swanlab.sdk.internal.pkg.timer.Timer.start", lambda self: self)
-    monkeypatch.setattr("swanlab.sdk.internal.probe_python.monitor.COLLECT_TIMEOUT", 0.12)
+    monkeypatch.setattr("swanlab.sdk.internal.probe_python.monitor.COLLECT_TIMEOUT", collect_timeout)
     monkeypatch.setattr(console, "trace", MagicMock())
+    monkeypatch.setattr(Future, "result", _record_result)
 
     monitor = Monitor(shim, core).start(ctx)
     assert monitor is not None
-    started = time.monotonic()
     try:
         monitor._timer._execute_once()  # type: ignore[union-attr]
-        elapsed = time.monotonic() - started
     finally:
         release.set()
         monitor.stop()
 
-    assert elapsed < 0.21
+    # 两个采集器都应被等待过，且第二次拿到的预算应远小于一次完整超时：
+    # 若退化成“每个采集器各等一轮”，第二次仍会拿到完整的 COLLECT_TIMEOUT
+    assert len(budgets) == 2, f"expected 2 waits, got {budgets}"
+    first, second = budgets
+    assert first is not None and first > collect_timeout / 2, f"first wait got budget {first}"
+    assert second is not None and second < collect_timeout / 4, f"second wait got budget {second}"
