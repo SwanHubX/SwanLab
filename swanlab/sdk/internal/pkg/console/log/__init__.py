@@ -70,7 +70,11 @@ class SecureRotatingFileHandler(RotatingFileHandler):
 
         # 仅在类 Unix 系统（Linux/macOS）上应用 POSIX 权限
         if os.name == "posix":
-            os.chmod(self.baseFilename, 0o600)
+            try:
+                os.chmod(self.baseFilename, 0o600)
+            except OSError:
+                # NFS root_squash / CIFS / FUSE 等文件系统可能不支持 chmod，降级保持挂载默认权限，不阻断启动
+                pass
 
         # 注意：Windows 环境下多为个人开发机，且 os.chmod 无法操作 ACL，故跳过
         return stream
