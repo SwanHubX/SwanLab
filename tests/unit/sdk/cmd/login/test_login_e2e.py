@@ -9,6 +9,7 @@ import pytest
 import requests
 import responses
 
+import swanlab
 from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.cmd.login import login, login_cli, login_raw
 from swanlab.sdk.internal.core_python import client
@@ -240,7 +241,34 @@ class TestLoginE2E:
         assert not (Settings.get_user_config_dir() / ".netrc").exists()
         assert errors == []
         assert not any("[HTTP] retry" in msg for msg in warnings)
-        assert len([msg for msg in warnings if msg.startswith("🚨")]) == 1
+        alert_warnings = [msg for msg in warnings if msg.startswith("🚨")]
+        assert len(alert_warnings) == 1
+        assert "records will be saved locally" in alert_warnings[0]
+        assert "retried in background" not in alert_warnings[0]
+
+    @responses.activate
+    def test_login_connection_error_mentions_background_retry_with_go_core(self, monkeypatch):
+        """启用 Go core 时，swanlab.login() 遇连接失败应提示将在后台重试。"""
+        warnings: list[str] = []
+        errors: list[str] = []
+        monkeypatch.setattr(console, "warning", lambda *args, **kwargs: warnings.append(" ".join(map(str, args))))
+        monkeypatch.setattr(console, "error", lambda *args, **kwargs: errors.append(" ".join(map(str, args))))
+
+        swanlab.require("core")
+        custom_host = "http://localhost:8081"
+        responses.add(
+            responses.POST,
+            f"{custom_host}/api/login/api_key",
+            body=requests.ConnectionError("boom"),
+        )
+
+        result = login(api_key="some-key", host=custom_host, relogin=True, save=True)
+
+        assert result is False
+        assert errors == []
+        alert_warnings = [msg for msg in warnings if msg.startswith("🚨")]
+        assert len(alert_warnings) == 1
+        assert "connection will be retried in background" in alert_warnings[0]
 
     @responses.activate
     def test_login_raw_strict_raises_on_failure(self):

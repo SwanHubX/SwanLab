@@ -25,9 +25,9 @@ from swanlab.sdk.internal.context.components import CoreBackend
 from swanlab.sdk.internal.core_go import runtime as runtime_module
 from swanlab.sdk.internal.core_go.config import CoreGoError, ReasonCode, Stage
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
-from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg import console, helper
 from swanlab.sdk.internal.settings import Settings
-from swanlab.sdk.protocol.core import NullCoreProtocol
+from swanlab.sdk.protocol.core import CoreEnum, NullCoreProtocol
 from swanlab.sdk.typings.run import ModeType
 
 
@@ -336,6 +336,7 @@ class TestExplicitRunDirReuse:
         assert requests_seen == []
 
     def test_missing_binary_rejects_existing_run_file_with_clear_error(self, tmp_path, monkeypatch):
+        helper.set_core_impl(CoreEnum.CORE)
         log_dir = tmp_path / "swanlog"
         existing = log_dir / "missing-binary-dir"
         existing.mkdir(parents=True)

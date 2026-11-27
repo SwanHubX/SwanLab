@@ -2,7 +2,7 @@
 @author: Nexisato
 @file: test_create_core.py
 @time: 2026/11/9
-@description: create_core 的默认 Go 路由、core_python 切回与缺失回退测试。
+@description: create_core 的默认 CorePython 路由、Go core 启用与缺失回退测试。
 """
 
 from pathlib import Path
@@ -52,7 +52,20 @@ def _capture_warnings(monkeypatch) -> List[str]:
     return warnings
 
 
-def test_default_uses_core_go_when_binary_available(monkeypatch, tmp_path):
+def test_default_uses_core_python_without_locating_binary(monkeypatch):
+    def fail() -> Path:
+        raise AssertionError("default core_python path must not locate the core binary")
+
+    monkeypatch.setattr(runtime_module, "locate_core_binary", fail)
+
+    core = core_factory.create_core(_ctx("online"))
+
+    assert helper.get_core_impl() == "python"
+    assert isinstance(core, CorePython)
+
+
+def test_core_go_opt_in_uses_core_go_when_binary_available(monkeypatch, tmp_path):
+    helper.set_core_impl(CoreEnum.CORE)
     binary = _write_binary(tmp_path / "swanlab-core")
     monkeypatch.setattr(runtime_module, "locate_core_binary", lambda: binary)
 
@@ -78,6 +91,7 @@ def test_core_python_uses_core_python_without_locating_binary(monkeypatch):
 
 @pytest.mark.parametrize("mode", ["local", "offline"])
 def test_local_and_offline_use_go_core_with_binary(monkeypatch, tmp_path, mode):
+    helper.set_core_impl(CoreEnum.CORE)
     binary = _write_binary(tmp_path / "swanlab-core")
     monkeypatch.setattr(runtime_module, "locate_core_binary", lambda: binary)
 
@@ -88,6 +102,8 @@ def test_local_and_offline_use_go_core_with_binary(monkeypatch, tmp_path, mode):
 
 
 def test_disabled_mode_does_not_require_binary(monkeypatch):
+    helper.set_core_impl(CoreEnum.CORE)
+
     def fail() -> Path:
         raise AssertionError("disabled mode must not locate the core binary")
 
@@ -100,6 +116,7 @@ def test_disabled_mode_does_not_require_binary(monkeypatch):
 
 
 def test_missing_binary_falls_back_to_core_python_and_warns_once(monkeypatch):
+    helper.set_core_impl(CoreEnum.CORE)
     error = CoreGoError(Stage.SPAWN, ReasonCode.BINARY_NOT_FOUND, "missing")
     warnings = _capture_warnings(monkeypatch)
 
@@ -118,6 +135,7 @@ def test_missing_binary_falls_back_to_core_python_and_warns_once(monkeypatch):
 
 
 def test_create_core_passes_detach_and_idle_timeout_from_settings(monkeypatch, tmp_path):
+    helper.set_core_impl(CoreEnum.CORE)
     binary = _write_binary(tmp_path / "swanlab-core")
     monkeypatch.setattr(runtime_module, "locate_core_binary", lambda: binary)
 
@@ -165,6 +183,7 @@ class TestResolveDetach:
         assert core_factory.resolve_detach(self._settings(detach=True)) is True
 
     def test_shared_parallel_reaches_core_go(self, monkeypatch, tmp_path):
+        helper.set_core_impl(CoreEnum.CORE)
         binary = _write_binary(tmp_path / "swanlab-core")
         monkeypatch.setattr(runtime_module, "locate_core_binary", lambda: binary)
 
@@ -183,6 +202,7 @@ class TestIdleTimeoutDefaults:
 
     @pytest.mark.parametrize("idle_timeout", [0.0, 60.0])
     def test_parallel_shared_passes_idle_timeout_to_core_go(self, monkeypatch, tmp_path, idle_timeout):
+        helper.set_core_impl(CoreEnum.CORE)
         binary = _write_binary(tmp_path / "swanlab-core")
         monkeypatch.setattr(runtime_module, "locate_core_binary", lambda: binary)
 
@@ -192,6 +212,7 @@ class TestIdleTimeoutDefaults:
         assert core._idle_timeout == idle_timeout  # noqa: SLF001
 
     def test_parallel_shared_uses_default_idle_timeout(self, monkeypatch, tmp_path):
+        helper.set_core_impl(CoreEnum.CORE)
         binary = _write_binary(tmp_path / "swanlab-core")
         monkeypatch.setattr(runtime_module, "locate_core_binary", lambda: binary)
 
@@ -232,6 +253,7 @@ class TestDetachIgnoredForCorePython:
         assert warnings == []
 
     def test_missing_binary_fallback_only_warns_about_binary(self, monkeypatch):
+        helper.set_core_impl(CoreEnum.CORE)
         error = CoreGoError(Stage.SPAWN, ReasonCode.BINARY_NOT_FOUND, "missing")
         warnings = _capture_warnings(monkeypatch)
 

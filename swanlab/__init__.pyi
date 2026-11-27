@@ -327,35 +327,34 @@ def merge_callbacks(callbacks: CallbacksType) -> None:
 def require(*requirements: str) -> List[str]:
     """Select a SwanLab runtime backend (process-global).
 
-    Must be called before ``swanlab.init()``. By default, SwanLab uses the Go core
-    (falling back to the Python core if the binary is unavailable). Supported requirements:
+    Must be called before ``swanlab.init()``. By default, SwanLab uses the built-in
+    Python core (``CorePython``). Supported requirements:
 
-    - ``"core"``: use the SwanLab Go core runtime (default).
-    - ``"core_python"``: switch back to the built-in Python core.
+    - ``"core"``: switch to the SwanLab Go core runtime (falling back to the Python core if the binary is unavailable).
+    - ``"core_python"``: explicitly use the built-in Python core (default).
     - ``"probe"``: switch to the SwanLab Rust probe runtime.
     - ``"probe_python"``: explicitly use the built-in Python probe.
 
     Equivalent to setting the ``SWANLAB_REQUIRE`` environment variable (comma-separated).
-    Calling ``require("core")`` while Go core is already active emits a warning.
     This is a transitional API: once all new backends become stable defaults,
     it will degrade to a no-op or be deprecated.
 
-    :param requirements: One or more requirement tokens, e.g. ``"core_python"``, ``"core"``.
+    :param requirements: One or more requirement tokens, e.g. ``"core"``, ``"core_python"``.
     :return: The list of activated requirement tokens.
     :raises ValueError: If a requirement token is unknown.
     :raises RuntimeError: If called while a run is active.
 
     Examples:
 
-        Switch back to the built-in Python core:
+        Switch to the SwanLab Go core:
 
         >>> import swanlab
-        >>> swanlab.require("core_python")
+        >>> swanlab.require("core")
         >>> swanlab.init()
 
         Configure via environment variable instead:
 
-        >>> # SWANLAB_REQUIRE=core_python python train.py
+        >>> # SWANLAB_REQUIRE=core python train.py
     """
     ...
 

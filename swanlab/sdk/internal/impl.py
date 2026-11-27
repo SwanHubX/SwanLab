@@ -15,7 +15,7 @@ def resolve_core_sync_backend() -> CoreBackend:
 
 
 def create_core_sync(backend: Optional[CoreBackend] = None) -> CoreSyncProtocol:
-    """core sync 对象工厂；默认走 Go core，缺失二进制时单次告警并回退 CoreSyncPython。"""
+    """core sync 对象工厂；按当前 core 实现路由，启用 Go core 但缺失二进制时单次告警并回退 CoreSyncPython。"""
     resolved = backend if backend is not None else resolve_core_sync_backend()
     if resolved.impl == "python":
         if resolved.fallback_reason is not None:
