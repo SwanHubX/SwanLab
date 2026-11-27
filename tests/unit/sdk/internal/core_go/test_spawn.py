@@ -244,17 +244,3 @@ def test_spawn_core_resolves_relative_log_dir_into_argv(tmp_path, monkeypatch, r
 
     expected = str((tmp_path / "rel-debug").resolve())
     assert captured["args"][-2:] == ["--log-dir", expected]
-
-
-def test_spawn_core_rotates_oversized_stderr_before_spawn(tmp_path, monkeypatch, runtime_lease):
-    binary = _make_binary(tmp_path)
-    _capture_popen(monkeypatch)
-    monkeypatch.setattr(process_module, "STDERR_MAX_BYTES", 16)
-    runtime_lease.stderr_file.write_bytes(b"0123456789abcdef0")
-
-    spawn_core(binary, runtime_lease)
-
-    backup = runtime_lease.stderr_file.with_name(f"{runtime_lease.stderr_file.name}.1")
-    assert backup.read_bytes() == b"0123456789abcdef0"
-    assert runtime_lease.stderr_file.exists()
-    assert runtime_lease.stderr_file.stat().st_size == 0

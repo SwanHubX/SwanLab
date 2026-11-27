@@ -21,7 +21,6 @@ from swanlab.sdk.internal.core_go.config import (
     EXIT_USAGE_ERROR,
     KILL_TIMEOUT,
     PORT_FILE_TIMEOUT,
-    STDERR_MAX_BYTES,
     STDERR_TAIL_BYTES,
     TERMINATE_TIMEOUT,
     WAIT_TIMEOUT,
@@ -52,16 +51,6 @@ def stderr_tail(lease: RuntimeLease) -> str:
     except OSError:
         return ""
     return data.decode("utf-8", "replace")
-
-
-def _rotate_stderr_if_needed(stderr_file: Path) -> None:
-    """在启动拉起前按大小上限轮转 core.stderr.log，避免 Detached Mode 无限增长。"""
-    try:
-        if stderr_file.stat().st_size < STDERR_MAX_BYTES:
-            return
-        os.replace(stderr_file, stderr_file.with_name(f"{stderr_file.name}.1"))
-    except OSError:
-        return
 
 
 def _format_go_duration(seconds: float) -> str:
@@ -135,10 +124,8 @@ def spawn_core(
     else:
         kwargs["start_new_session"] = True
 
-    stderr_file = Path(lease.stderr_file)
-    _rotate_stderr_if_needed(stderr_file)
     try:
-        with stderr_file.open("ab") as stderr:
+        with Path(lease.stderr_file).open("ab") as stderr:
             return subprocess.Popen(stderr=stderr, **kwargs)
     except OSError as exc:
         raise CoreGoError(

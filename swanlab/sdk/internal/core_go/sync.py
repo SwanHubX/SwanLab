@@ -56,16 +56,14 @@ class CoreSyncGo(CoreGoBase[SyncState], CoreSyncProtocol):
     _close_abort_states = (SyncState.STARTING, SyncState.FLUSHING)
     _teardown_log_prefix = "sync core"
 
-    def __init__(self, *, binary: Optional[Path] = None, log_dir: Optional[Path] = None) -> None:
+    def __init__(self, *, binary: Optional[Path] = None) -> None:
         CoreSyncProtocol.__init__(self)
         self._init_lifecycle(binary=binary, detach=False, initial_state=SyncState.NEW)
-        self._log_dir = Path(log_dir) if log_dir is not None else None
         self._core_rpc: Optional[CoreServiceRpc] = None
         self._sync_rpc: Optional[CoreSyncRpc] = None
 
-    def _resolve_sync_log_dir(self, start_request: DeliverSyncStartRequest) -> Optional[Path]:
-        if self._log_dir is not None:
-            return self._log_dir
+    @staticmethod
+    def _resolve_sync_log_dir(start_request: DeliverSyncStartRequest) -> Optional[Path]:
         raw_run_dir = start_request.core_settings.run_dir
         if raw_run_dir and Path(raw_run_dir).is_dir():
             return Path(raw_run_dir) / "debug"

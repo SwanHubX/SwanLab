@@ -45,7 +45,6 @@ __all__ = [
     "TERMINATE_TIMEOUT",
     "KILL_TIMEOUT",
     "GRPC_MAX_MESSAGE_BYTES",
-    "STDERR_MAX_BYTES",
     "STDERR_TAIL_BYTES",
 ]
 
@@ -115,6 +114,5 @@ KILL_TIMEOUT = 2.0
 
 # 单条消息上限，与 Go 侧 maxRecvMsgSize 共用协议层的同一个值。
 GRPC_MAX_MESSAGE_BYTES = MAX_MESSAGE_BYTES
-# stderr 轮转上限（10 MiB）及尾部最多读取的字节数。
-STDERR_MAX_BYTES = 10 * 1024 * 1024
+# stderr 尾部最多读取的字节数。
 STDERR_TAIL_BYTES = 4096

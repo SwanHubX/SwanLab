@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -373,5 +374,83 @@ func TestRunDetachedDisconnectCleansSessionAndExitsIdle(t *testing.T) {
 		if _, statErr := os.Stat(info.UnixPath); !errors.Is(statErr, os.ErrNotExist) {
 			t.Fatalf("socket file still exists after idle exit: %v", statErr)
 		}
+	}
+}
+
+func TestRunDegradesWhenDiagnosticLogOpenFails(t *testing.T) {
+	dir := shortRuntimeDir(t)
+	portFile := filepath.Join(dir, portinfo.CorePortFileName)
+
+	// 将 debug-core.log 占成目录，模拟日志路径不可写/不可打开的真实失败场景。
+	badLogDir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(badLogDir, "debug-core.log"), 0o700); err != nil {
+		t.Fatalf("mkdir debug-core.log: %v", err)
+	}
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe: %v", err)
+	}
+	oldStderr := os.Stderr
+	os.Stderr = w
+	stderrCh := make(chan string, 1)
+	go func() {
+		b, _ := io.ReadAll(r)
+		stderrCh <- string(b)
+	}()
+	restored := false
+	restoreStderr := func() string {
+		if !restored {
+			restored = true
+			os.Stderr = oldStderr
+			_ = w.Close()
+		}
+		out := <-stderrCh
+		_ = r.Close()
+		return out
+	}
+	defer func() {
+		if !restored {
+			os.Stderr = oldStderr
+			_ = w.Close()
+			<-stderrCh
+			_ = r.Close()
+		}
+	}()
+
+	doneCh := make(chan int, 1)
+	go func() {
+		doneCh <- run([]string{"--port-filename", portFile, "--detach", "--idle-timeout", "5s", "--log-dir", badLogDir})
+	}()
+
+	info := waitForPortInfo(t, portFile, doneCh)
+	conn, err := grpc.NewClient(grpcTarget(info), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("grpc.NewClient: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	client := corev1.NewCoreServiceClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if _, spinErr := client.SpinupService(ctx, &corev1.SpinupServiceRequest{}); spinErr != nil {
+		t.Fatalf("SpinupService: %v", spinErr)
+	}
+	if _, tdErr := client.TeardownService(ctx, &corev1.TeardownServiceRequest{}); tdErr != nil {
+		t.Fatalf("TeardownService: %v", tdErr)
+	}
+
+	select {
+	case code := <-doneCh:
+		if code != 0 {
+			t.Fatalf("core exit code = %d, want 0", code)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("core did not exit after TeardownService")
+	}
+
+	stderrOut := restoreStderr()
+	if !strings.Contains(stderrOut, "failed to open diagnostic log") {
+		t.Fatalf("expected stderr warning for diagnostic log failure, got %q", stderrOut)
 	}
 }
