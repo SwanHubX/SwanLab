@@ -6,11 +6,13 @@
 当 SWANLAB_DEBUG=true 时，终端输出会同步镜像到诊断日志文件（通过 log 模块）
 """
 
+import contextvars
 import inspect
 import os
 import sys
+from contextlib import contextmanager
 from datetime import datetime
-from typing import Any, Literal, Optional
+from typing import Any, Generator, Literal, Optional
 
 from rich.console import Console
 from rich.text import Text
@@ -18,11 +20,32 @@ from rich.text import Text
 from .. import helper
 from . import log
 
-__all__ = ["debug", "info", "warning", "error", "trace", "c", "init", "reset"]
+__all__ = ["debug", "info", "warning", "error", "trace", "c", "init", "reset", "skip_capture", "capture_skipped"]
 
 c = Console(highlighter=None)
 _name = "swanlab"
 _this_file = os.path.abspath(__file__)
+
+# 当前上下文（线程）正在输出的内容是否要跳过终端代理的采集
+_capture_skipped: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "_swanlab_capture_skipped",
+    default=False,
+)
+
+
+def capture_skipped() -> bool:
+    """当前是否正在输出 SDK 自身内容（终端代理据此跳过采集）。"""
+    return _capture_skipped.get()
+
+
+@contextmanager
+def skip_capture() -> Generator[None, None, None]:
+    """块内终端输出仅透传至原始流，不触发终端代理采集（防止 SDK 告警自循环）。"""
+    token = _capture_skipped.set(True)
+    try:
+        yield
+    finally:
+        _capture_skipped.reset(token)
 
 
 def _now() -> str:

@@ -20,6 +20,16 @@ from swanlab.sdk.cmd.sync import build_sync_range, ensure_run_dir, format_sync_r
 from swanlab.sdk.internal.settings import Settings
 
 
+class _LifecycleFake:
+    """为只覆盖部分协议方法的 fake 提供空的生命周期实现。"""
+
+    def close(self) -> None:
+        pass
+
+    def abort(self, cause=None) -> None:
+        pass
+
+
 def test_build_sync_range_returns_none_without_bounds():
     assert build_sync_range() is None
 
@@ -111,7 +121,7 @@ def test_sync_logs_in_when_api_key_provided(tmp_path, monkeypatch):
         login_calls.append((api_key, host, print_welcome))
         logged_in = True
 
-    class FakeCoreSync:
+    class FakeCoreSync(_LifecycleFake):
         def confirm_sync_finish(self):
             return type("Response", (), {"success": True, "message": "OK"})()
 
@@ -131,7 +141,7 @@ def test_sync_logs_in_when_api_key_provided(tmp_path, monkeypatch):
 
 
 def test_sync_waits_for_progress_before_confirming(tmp_path, monkeypatch):
-    class FakeCoreSync:
+    class FakeCoreSync(_LifecycleFake):
         confirmed = False
 
         def get_operation_stats(self):
@@ -158,35 +168,8 @@ def test_sync_waits_for_progress_before_confirming(tmp_path, monkeypatch):
     assert core.confirmed is True
 
 
-def test_sync_uses_protocol_confirm_directly(tmp_path, monkeypatch):
-    class FakeCoreSync:
-        confirmed = False
-
-        def get_operation_stats(self):
-            return GetOperationStatsResponse(
-                success=True, message="OK", stats=OperationStats(state=CoreState.CORE_STATE_FINISHED)
-            )
-
-        def confirm_sync_finish(self):
-            self.confirmed = True
-            return ConfirmSyncFinishResponse(success=True, message="OK")
-
-    core = FakeCoreSync()
-
-    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
-    monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
-    monkeypatch.setattr("swanlab.sdk.cmd.sync._deliver_sync_start", lambda *args, **kwargs: None)
-    monkeypatch.setattr(
-        "swanlab.sdk.cmd.sync.run_with_progress",
-        lambda stats_fn, blocking_fn, **kwargs: blocking_fn(),
-    )
-
-    sync(tmp_path, settings=Settings())
-    assert core.confirmed is True
-
-
 def test_sync_raises_when_deliver_sync_start_fails(tmp_path, monkeypatch):
-    class FakeCoreSync:
+    class FakeCoreSync(_LifecycleFake):
         confirmed = False
 
         def deliver_sync_start(self, request):
@@ -210,7 +193,7 @@ def test_sync_raises_when_deliver_sync_start_fails(tmp_path, monkeypatch):
 
 
 def test_sync_raises_when_deliver_sync_flush_fails(tmp_path, monkeypatch):
-    class FakeCoreSync:
+    class FakeCoreSync(_LifecycleFake):
         confirmed = False
 
         def deliver_sync_start(self, request):
@@ -231,3 +214,141 @@ def test_sync_raises_when_deliver_sync_flush_fails(tmp_path, monkeypatch):
         sync(tmp_path, settings=Settings())
 
     assert core.confirmed is False
+
+
+def test_sync_fills_api_key_from_active_client_and_closes(tmp_path, monkeypatch):
+    captured_settings = []
+
+    class RecordingCoreSync:
+        closed = False
+        aborted = False
+
+        def deliver_sync_start(self, request):
+            captured_settings.append(request.core_settings)
+            return DeliverSyncStartResponse(success=True, message="success")
+
+        def deliver_sync_flush(self):
+            return DeliverSyncFlushResponse(success=True, message="success", path="/@u/p/s")
+
+        def get_operation_stats(self):
+            return GetOperationStatsResponse(
+                success=True, message="OK", stats=OperationStats(state=CoreState.CORE_STATE_FINISHED)
+            )
+
+        def confirm_sync_finish(self):
+            return ConfirmSyncFinishResponse(success=True, message="OK")
+
+        def close(self):
+            self.closed = True
+
+        def abort(self, cause=None):
+            self.aborted = True
+
+    core = RecordingCoreSync()
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.current_api_key", lambda: "runtime-secret-key")
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
+    monkeypatch.setattr(
+        "swanlab.sdk.cmd.sync.run_with_progress",
+        lambda stats_fn, blocking_fn, **kwargs: blocking_fn(),
+    )
+
+    sync(tmp_path, settings=Settings())
+
+    assert len(captured_settings) == 1
+    assert captured_settings[0].api_key == "runtime-secret-key"
+    assert core.closed is True
+    assert core.aborted is False
+
+
+def test_sync_aborts_core_on_exception_and_keyboard_interrupt(tmp_path, monkeypatch):
+    for exc_to_raise in (RuntimeError("boom"), KeyboardInterrupt()):
+
+        class FailingCoreSync:
+            def __init__(self) -> None:
+                self.closed = False
+                self.aborted_causes = []
+
+            def deliver_sync_start(self, request):
+                raise exc_to_raise
+
+            def deliver_sync_flush(self):
+                return DeliverSyncFlushResponse(success=True, message="success")
+
+            def get_operation_stats(self):
+                return GetOperationStatsResponse(success=True)
+
+            def confirm_sync_finish(self):
+                return ConfirmSyncFinishResponse(success=True)
+
+            def close(self):
+                self.closed = True
+
+            def abort(self, cause=None):
+                self.aborted_causes.append(cause)
+
+        core = FailingCoreSync()
+        monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
+        monkeypatch.setattr("swanlab.sdk.cmd.sync.client.current_api_key", lambda: None)
+        monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
+
+        with pytest.raises(type(exc_to_raise)):
+            sync(tmp_path, settings=Settings())
+
+        assert len(core.aborted_causes) == 1
+        assert core.aborted_causes[0] is exc_to_raise
+        assert core.closed is False
+
+
+def test_sync_stops_polling_when_core_dies_mid_upload(tmp_path, monkeypatch):
+    """core 在上传中退出：连续 stats 失败必须收敛，最终把异常抛给调用方并 abort 回收。"""
+
+    class DyingCoreSync:
+        def __init__(self) -> None:
+            self.stats_calls = 0
+            self.aborted_causes = []
+            self.closed = False
+
+        def deliver_sync_start(self, request):
+            return DeliverSyncStartResponse(success=True, message="success")
+
+        def deliver_sync_flush(self):
+            return DeliverSyncFlushResponse(success=True, message="success")
+
+        def get_operation_stats(self):
+            self.stats_calls += 1
+            if self.stats_calls == 1:
+                return GetOperationStatsResponse(
+                    success=True,
+                    message="OK",
+                    stats=OperationStats(
+                        state=CoreState.CORE_STATE_RUNNING,
+                        total_records=10,
+                        uploaded_records=0,
+                    ),
+                )
+            return GetOperationStatsResponse(success=False, message="[RPC/GRPC_UNAVAILABLE] connect failed")
+
+        def confirm_sync_finish(self):
+            raise RuntimeError("core is gone")
+
+        def close(self):
+            self.closed = True
+
+        def abort(self, cause=None):
+            self.aborted_causes.append(cause)
+
+    core = DyingCoreSync()
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.current_api_key", lambda: None)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync._deliver_sync_start", lambda *args, **kwargs: None)
+    monkeypatch.setattr("swanlab.sdk.internal.run.progress._POLL_INTERVAL", 0)
+    monkeypatch.setattr("swanlab.sdk.internal.run.progress._MAX_CONSECUTIVE_STATS_FAILURES", 2)
+
+    with pytest.raises(RuntimeError, match="core is gone"):
+        sync(tmp_path, settings=Settings())
+
+    assert core.stats_calls <= 5
+    assert len(core.aborted_causes) == 1
+    assert core.closed is False

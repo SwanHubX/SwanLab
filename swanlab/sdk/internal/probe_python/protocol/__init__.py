@@ -6,9 +6,9 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Callable, List, Optional, Set, Tuple, Union
 
-from swanlab.sdk.internal.pkg import safe
+from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.probe_python.typings import (
     AcceleratorSnapshot,
     AppleSiliconSnapshot,
@@ -33,12 +33,26 @@ class CollectorProtocol(ABC):
     def __init__(self, shim: SystemShim):
         self._shim = shim
         self._handlers: List[Tuple[str, Callable[[], Union[int, float]]]] = []
+        # 已经告警过的指标 key：同一个指标后续失败只写 debug，避免刷屏
+        self._warned_failures: Set[str] = set()
 
     def collect(self) -> List[CollectResult]:
-        results = []
+        results: List[CollectResult] = []
+        newly_failed: List[Tuple[str, BaseException]] = []
         for key, handler in self._handlers:
-            with safe.block(message=f"Failed to collect while calling {handler.__name__}"):
+            try:
                 results.append((key, handler()))
+            except Exception as exc:
+                if key in self._warned_failures:
+                    console.debug(
+                        f"Failed to collect {key} while calling {handler.__name__}: {exc}", write_to_tty=False
+                    )
+                else:
+                    self._warned_failures.add(key)
+                    newly_failed.append((key, exc))
+        if newly_failed:
+            keys = ", ".join(key for key, _ in newly_failed)
+            console.warning(f"Failed to collect system metrics: {keys} ({newly_failed[0][1]}).")
         return results
 
 

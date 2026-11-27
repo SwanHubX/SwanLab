@@ -92,7 +92,8 @@ def create_or_resume_experiment(
         created_at_for_response = exp_resp.data.get("createdAt", "")
         if not created_at_for_response:
             raise ValueError(
-                f"Backend did not return createdAt for experiment {experiment['cuid']}; please upgrade swanlab-server"
+                f"SwanLab online service did not return createdAt for experiment {experiment['cuid']}; "
+                "please upgrade your SwanLab deployment"
             )
         experiment["createdAt"] = created_at_for_response
     return resp.data, resp.raw.status_code == 201

@@ -14,6 +14,19 @@
 >>> is_interactive()
 """
 
-from . import client, console, constraints, executor, fork, fs, helper, nrc, safe, scope, timer
+from . import client, console, constraints, executor, fork, fs, helper, nrc, safe, scope, throttle, timer
 
-__all__ = ["scope", "console", "helper", "safe", "nrc", "timer", "constraints", "fs", "client", "fork", "executor"]
+__all__ = [
+    "scope",
+    "console",
+    "helper",
+    "safe",
+    "nrc",
+    "timer",
+    "constraints",
+    "fs",
+    "client",
+    "fork",
+    "executor",
+    "throttle",
+]

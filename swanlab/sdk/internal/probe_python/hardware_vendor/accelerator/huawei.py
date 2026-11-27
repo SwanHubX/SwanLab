@@ -22,6 +22,7 @@ import subprocess
 from typing import List, Optional, Tuple
 
 from swanlab.sdk.internal.pkg import console, safe
+from swanlab.sdk.internal.probe_python.hardware_vendor.utils import DEFAULT_TIMEOUT
 from swanlab.sdk.internal.probe_python.protocol import AcceleratorProtocol, CollectResult
 from swanlab.sdk.internal.probe_python.typings import (
     AcceleratorSnapshot,
@@ -138,7 +139,7 @@ class AscendNPU(AcceleratorProtocol):
         command = ["npu-smi", "info", "-t", info_type, "-i", npu_id]
         if chip_query:
             command.extend(["-c", chip_id])
-        return subprocess.run(command, capture_output=True, text=True).stdout
+        return subprocess.run(command, capture_output=True, text=True, timeout=DEFAULT_TIMEOUT).stdout
 
     def _collect_usage(self, npu_id: str, chip_id: str, label: str, *, chip_query: bool = True) -> List[CollectResult]:
         util_val = math.nan
@@ -236,7 +237,7 @@ class AscendNPU(AcceleratorProtocol):
 
     @staticmethod
     def _get_version() -> str:
-        result = subprocess.run(["npu-smi", "-v"], capture_output=True, check=True, text=True)
+        result = subprocess.run(["npu-smi", "-v"], capture_output=True, check=True, text=True, timeout=DEFAULT_TIMEOUT)
         return result.stdout.split(":")[-1].strip()
 
     @staticmethod
@@ -254,7 +255,9 @@ class AscendNPU(AcceleratorProtocol):
 
     @staticmethod
     def _map_npu_raw() -> dict:
-        output = subprocess.run(["npu-smi", "info", "-m"], capture_output=True, check=True, text=True).stdout
+        output = subprocess.run(
+            ["npu-smi", "info", "-m"], capture_output=True, check=True, text=True, timeout=DEFAULT_TIMEOUT
+        ).stdout
         npu_map: dict = {}
         lines = output.splitlines()
         if not lines:

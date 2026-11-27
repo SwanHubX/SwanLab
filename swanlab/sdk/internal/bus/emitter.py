@@ -6,11 +6,16 @@
 """
 
 import queue
-from typing import Protocol
+from typing import Callable, Optional, Protocol
+
+from swanlab.sdk.internal.pkg import console, throttle
 
 from .events import EventPayload
 
 __all__ = ["RunEmitter", "RunQueue", "EmitterProtocol"]
+
+_DROP_WARNING_INTERVAL: float = 10.0
+_QUEUE_PUT_POLL_INTERVAL: float = 0.5
 
 
 RunQueue = queue.Queue[EventPayload]
@@ -34,12 +39,36 @@ class RunEmitter(EmitterProtocol):
 
     def __init__(self, maxsize: int = 100_000):
         self._queue: RunQueue = RunQueue(maxsize=maxsize)
+        self._consumer_guard: Optional[Callable[[], bool]] = None
+        self._drop_throttle = throttle.WarningThrottle(_DROP_WARNING_INTERVAL)
 
     @property
     def queue(self) -> RunQueue:
         """只读暴露给 BackgroundConsumer，外部不应直接操作队列"""
         return self._queue
 
+    def set_consumer_guard(self, guard: Callable[[], bool]) -> None:
+        """绑定消费者存活检查；由组件工厂注入。"""
+        self._consumer_guard = guard
+
     def emit(self, event: EventPayload) -> None:
-        """将事件推入队列，背压时阻塞调用方"""
-        self._queue.put(event, block=True)
+        """消费者存活时阻塞等待队列空位；线程已退出时丢弃，避免卡死训练线程。"""
+        guard = self._consumer_guard
+        if guard is None:
+            self._queue.put(event, block=True)
+            return
+        while True:
+            if not guard():
+                self._warn_dropped()
+                return
+            try:
+                self._queue.put(event, timeout=_QUEUE_PUT_POLL_INTERVAL)
+                return
+            except queue.Full:
+                continue
+
+    def _warn_dropped(self) -> None:
+        count = self._drop_throttle.record()
+        if count > 0:
+            with console.skip_capture():
+                console.warning(f"Dropped {count} event(s): background consumer is not running")

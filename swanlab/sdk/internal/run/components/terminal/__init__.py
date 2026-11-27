@@ -29,6 +29,9 @@ from .emulator import TerminalEmulator
 
 __all__ = ["TerminalProxyProtocol", "TerminalProxy"]
 
+# 单个流的待处理块上限：消费跟不上时丢弃最旧的块，内存不随终端输出无界增长
+_QUEUE_MAXSIZE = 2048
+
 
 class TerminalProxyProtocol(Protocol):
     """终端代理协议"""
@@ -69,9 +72,9 @@ class TerminalProxy(TerminalProxyProtocol):
         self._stdout_emulator = TerminalEmulator(on_flush=self._flush)
         self._stderr_emulator = TerminalEmulator(on_flush=self._flush)
 
-        # 双队列
-        self._stdout_queue: queue.Queue[str] = queue.Queue()
-        self._stderr_queue: queue.Queue[str] = queue.Queue()
+        # 双队列（有界：满时丢最旧，保证用户 print 不被阻塞）
+        self._stdout_queue: queue.Queue[str] = queue.Queue(maxsize=_QUEUE_MAXSIZE)
+        self._stderr_queue: queue.Queue[str] = queue.Queue(maxsize=_QUEUE_MAXSIZE)
 
         # 线程控制
         self._stopped = threading.Event()
@@ -155,10 +158,25 @@ class TerminalProxy(TerminalProxyProtocol):
     # ----------------------------------
 
     def _on_stdout_write(self, text: str) -> None:
-        self._stdout_queue.put(text)
+        self._enqueue(self._stdout_queue, text)
 
     def _on_stderr_write(self, text: str) -> None:
-        self._stderr_queue.put(text)
+        self._enqueue(self._stderr_queue, text)
+
+    @staticmethod
+    def _enqueue(target: queue.Queue[str], text: str) -> None:
+        """入队；队列已满时扔掉最旧的块，保证用户 stdout/stderr 写入永远不被阻塞。"""
+        try:
+            target.put_nowait(text)
+            return
+        except queue.Full:
+            pass
+        try:
+            target.get_nowait()
+            target.put_nowait(text)
+        except (queue.Empty, queue.Full):
+            # 其他线程同时在写同一队列，丢弃本块即可
+            pass
 
     # ----------------------------------
     # 工作线程

@@ -79,7 +79,7 @@ MemoryLikeSnapshot = Union[AppleSiliconSnapshot, DeviceSnapshot, MemorySnapshot]
     "-h",
     default=None,
     type=str,
-    help="The host of the swanlab server.",
+    help="The host of the SwanLab online service.",
 )
 def ping(host: Optional[str]):
     """Diagnose connectivity and system environment for the current machine."""

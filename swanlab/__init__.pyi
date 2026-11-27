@@ -143,10 +143,12 @@ def init(
     :param log_dir: Directory to store logs. Defaults to "./swanlog".
     :param mode: Run mode. Options: "online" (sync to cloud), "local" (local only),
         "offline" (save locally for later sync), "disabled" (no logging). Defaults to "online".
-    :param on_online_error: Behavior when SwanLab Cloud is temporarily unreachable in online
-        mode. Only transient connection/server failures are degraded; authentication and
-        configuration errors always raise. Options: "offline" (save locally and sync later),
-        "disabled" (no logging), "raise". Defaults to "offline".
+    :param on_online_error: Behavior when SwanLab online service fails to connect or authenticate
+        in online mode. Transient connection/server failures and authentication errors (401/403)
+        are handled according to this policy; configuration errors still raise. Options: "offline"
+        (keep online mode and save locally while retrying the connection on transient outages, or
+        fall back to offline mode on auth/unrecoverable errors), "disabled" (no logging), "raise".
+        Defaults to "offline".
     :param workspace: Workspace or organization name. Defaults to current user.
     :param project: Project name. Defaults to current directory name.
     :param public: Make project publicly visible (online mode only). Defaults to False.
@@ -156,10 +158,16 @@ def init(
     :param job_type: Job type label (e.g., "train", "eval").
     :param group: Group name for organizing related experiments.
     :param tags: List of tags for categorizing experiments.
-    :param id: Run ID for resuming a previous run (online mode only).
-    :param resume: Resume behavior. Options: "must" (must resume), "allow" (resume if exists),
-        "never" (always create new). Defaults to "never".
+    :param id: Run ID for identifying this run (used for cloud resume in online mode and
+        local run identity verification when reusing ``run.dir``).
+    :param resume: Cloud resume behavior. Options: "must" (must resume), "allow" (resume if exists),
+        "never" (always create new). Defaults to "never". Only governs cloud experiment reuse;
+        to resume a local run directory after a crash, explicitly set ``run.dir`` or ``SWANLAB_RUN_DIR``
+        (requires the Go core, e.g. ``SWANLAB_REQUIRE=core``).
     :param parallel: Parallel execution policy. Options: "none", "shared".
+        ``"shared"`` lets several processes write one experiment: it forces ``resume="allow"``,
+        suffixes the run directory with hostname + pid, and (unless ``core.detach`` is set
+        explicitly) makes all ranks share one detached ``swanlab-core`` process.
     :param config: Experiment configuration dict or path to config file (JSON/YAML).
     :param settings: Custom Settings object for advanced configuration.
     :param callbacks: List of callback functions triggered on run events.
@@ -169,10 +177,10 @@ def init(
     :raises RuntimeError: If a run is already active and reinit=False, or if an online
         startup fails and is not degraded (a non-transient error, or a transient error
         when ``on_online_error="raise"``).
-    :raises AuthenticationError: If SwanLab Cloud rejects the API key during login or
-        startup, or if the initial login fails with a non-transient error. With
-        ``on_online_error="raise"`` any login failure is wrapped as
-        ``AuthenticationError`` with the original exception in ``__cause__``.
+    :raises AuthenticationError: If ``on_online_error="raise"`` and SwanLab online service
+        rejects the API key or login fails (wrapping the original exception in ``__cause__``),
+        or if initial login fails with a non-recoverable non-auth error. Under the default
+        ``on_online_error`` policies, 401/403 authentication errors degrade instead of raising.
 
     Examples:
 
@@ -241,7 +249,7 @@ def login(
     save: LoginType = False,
     timeout: int = 10,
 ) -> bool:
-    """Authenticate with SwanLab Cloud.
+    """Authenticate with SwanLab online service.
 
     This function authenticates your environment with SwanLab. If already logged in
     and `relogin` is False, this function does nothing. Call this before `swanlab.init()`
@@ -251,13 +259,14 @@ def login(
         environment or prompt for input.
     :param relogin: If True, forces re-authentication and overwrites existing credentials.
         Defaults to False.
-    :param host: Custom API host URL. If not provided, uses the default SwanLab cloud host.
+    :param host: Custom API host URL. If not provided, uses the default SwanLab online service host.
     :param save: Whether to save the API key locally for future sessions. Defaults to False.
     :param timeout: Network request timeout in seconds. Defaults to 10.
-    :return: True if login was successful, False otherwise.
+    :return: True if login succeeded, False if deferred because the SwanLab online service
+        failed to authenticate or is temporarily unreachable.
     :raises RuntimeError: If called while a run is active.
-    :raises AuthenticationError: If login fails due to invalid credentials, network issues,
-        or server errors. The original exception is available via ``__cause__``.
+    :raises AuthenticationError: If login fails due to local configuration errors (such as
+        missing credentials or mismatched host).
 
     Examples:
 
@@ -316,35 +325,36 @@ def merge_callbacks(callbacks: CallbacksType) -> None:
     ...
 
 def require(*requirements: str) -> List[str]:
-    """Enable a transitional SwanLab runtime backend (process-global).
+    """Select a SwanLab runtime backend (process-global).
 
-    Must be called before ``swanlab.init()``. Currently supported requirements:
+    Must be called before ``swanlab.init()``. By default, SwanLab uses the built-in
+    Python core (``CorePython``). Supported requirements:
 
-    - ``"core"``: switch to the SwanLab Go core runtime (swanlab-core).
+    - ``"core"``: switch to the SwanLab Go core runtime (falling back to the Python core if the binary is unavailable).
+    - ``"core_python"``: explicitly use the built-in Python core (default).
     - ``"probe"``: switch to the SwanLab Rust probe runtime.
-    - ``"core_python"``: explicitly use the built-in Python core.
     - ``"probe_python"``: explicitly use the built-in Python probe.
 
     Equivalent to setting the ``SWANLAB_REQUIRE`` environment variable (comma-separated).
-    Idempotent; unknown tokens raise ``ValueError``. This is a transitional API:
-    once the new backends become the default, it will degrade to a no-op or be deprecated.
+    This is a transitional API: once all new backends become stable defaults,
+    it will degrade to a no-op or be deprecated.
 
-    :param requirements: One or more requirement tokens, e.g. ``"core"``, ``"probe"``.
+    :param requirements: One or more requirement tokens, e.g. ``"core"``, ``"core_python"``.
     :return: The list of activated requirement tokens.
     :raises ValueError: If a requirement token is unknown.
     :raises RuntimeError: If called while a run is active.
 
     Examples:
 
-        Switch to the Go core for a single run:
+        Switch to the SwanLab Go core:
 
         >>> import swanlab
         >>> swanlab.require("core")
         >>> swanlab.init()
 
-        Enable both core and probe via the environment variable instead:
+        Configure via environment variable instead:
 
-        >>> # SWANLAB_REQUIRE=core,probe python train.py
+        >>> # SWANLAB_REQUIRE=core python train.py
     """
     ...
 
@@ -848,7 +858,7 @@ def sync_wandb(
 
     Examples::
 
-        Mirror wandb logs to SwanLab Cloud:
+        Mirror wandb logs to SwanLab online service:
 
         >>> import swanlab
         >>> swanlab.sync_wandb()

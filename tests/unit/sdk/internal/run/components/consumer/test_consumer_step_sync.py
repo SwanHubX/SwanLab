@@ -1,35 +1,14 @@
 """BackgroundConsumer step_sync 注入路径测试。"""
 
 import math
-import queue
-from pathlib import Path
-from types import SimpleNamespace
-from typing import cast
-from unittest.mock import MagicMock
 
 import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.sdk.internal.bus.events import MetricDefineEvent, MetricLogEvent
-from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.run.components.consumer import BackgroundConsumer
 from swanlab.sdk.internal.run.transforms import Text
-
-
-def _make_consumer(tmp_path: Path) -> BackgroundConsumer:
-    ctx = SimpleNamespace(
-        core=MagicMock(),
-        callbacker=MagicMock(),
-        media_dir=tmp_path,
-        config=SimpleNamespace(
-            settings=SimpleNamespace(
-                core=SimpleNamespace(section_rule=0, skip_store=False, media_max_size=50 * 1024**2)
-            )
-        ),
-    )
-    run_ctx = cast(RunContext, cast(object, ctx))
-    return BackgroundConsumer(run_ctx, queue.Queue())
 
 
 def _timestamp(seconds: int) -> Timestamp:
@@ -45,8 +24,8 @@ def _records_by_key(consumer: BackgroundConsumer, start: int = 0):
     return {key: [record for record in records if record.key == key] for key in {record.key for record in records}}
 
 
-def test_step_sync_injects_cached_x_with_current_y_step_and_timestamp(tmp_path: Path):
-    consumer = _make_consumer(tmp_path)
+def test_step_sync_injects_cached_x_with_current_y_step_and_timestamp(make_consumer):
+    consumer = make_consumer()
     consumer._handle_event(MetricDefineEvent("train/loss", x_axis="epoch"))
     _log(consumer, {"epoch": 3}, step=0, seconds=10)
     start = len(consumer._scalar_batch)
@@ -74,8 +53,8 @@ def test_step_sync_injects_cached_x_with_current_y_step_and_timestamp(tmp_path: 
     ],
     ids=["x-before-y", "y-before-x"],
 )
-def test_step_sync_does_not_inject_when_event_contains_x_regardless_of_order(tmp_path: Path, data: dict):
-    consumer = _make_consumer(tmp_path)
+def test_step_sync_does_not_inject_when_event_contains_x_regardless_of_order(make_consumer, data: dict):
+    consumer = make_consumer()
     consumer._handle_event(MetricDefineEvent("train/loss", x_axis="epoch"))
 
     _log(consumer, data, step=1, seconds=20)
@@ -86,8 +65,8 @@ def test_step_sync_does_not_inject_when_event_contains_x_regardless_of_order(tmp
     assert records["epoch"][0].value.number == 3
 
 
-def test_step_sync_injects_shared_x_only_once_for_multiple_y_in_same_event(tmp_path: Path):
-    consumer = _make_consumer(tmp_path)
+def test_step_sync_injects_shared_x_only_once_for_multiple_y_in_same_event(make_consumer):
+    consumer = make_consumer()
     consumer._handle_event(MetricDefineEvent("train/acc", x_axis="epoch"))
     consumer._handle_event(MetricDefineEvent("train/loss", x_axis="epoch"))
     _log(consumer, {"epoch": 3}, step=0, seconds=10)
@@ -101,8 +80,8 @@ def test_step_sync_injects_shared_x_only_once_for_multiple_y_in_same_event(tmp_p
     assert records["epoch"][0].value.number == 3
 
 
-def test_step_sync_does_not_inject_shared_x_twice_at_same_step(tmp_path: Path):
-    consumer = _make_consumer(tmp_path)
+def test_step_sync_does_not_inject_shared_x_twice_at_same_step(make_consumer):
+    consumer = make_consumer()
     consumer._handle_event(MetricDefineEvent("train/acc", x_axis="epoch"))
     consumer._handle_event(MetricDefineEvent("train/loss", x_axis="epoch"))
     _log(consumer, {"epoch": 3}, step=0, seconds=10)
@@ -116,9 +95,9 @@ def test_step_sync_does_not_inject_shared_x_twice_at_same_step(tmp_path: Path):
     assert records["epoch"][0].timestamp == _timestamp(20)
 
 
-def test_step_sync_injects_default_zero_before_first_real_x(tmp_path: Path):
+def test_step_sync_injects_default_zero_before_first_real_x(make_consumer):
     """X 从未 log 过时，绑定 Y 触发注入默认 0，X 序列从首个绑定 Y 的 step 出现（对齐 wandb）。"""
-    consumer = _make_consumer(tmp_path)
+    consumer = make_consumer()
     consumer._handle_event(MetricDefineEvent("train/acc", x_axis="epoch"))
     start = len(consumer._scalar_batch)
 
@@ -131,9 +110,9 @@ def test_step_sync_injects_default_zero_before_first_real_x(tmp_path: Path):
     assert records["epoch"][0].timestamp == _timestamp(10)
 
 
-def test_step_sync_default_zero_at_each_y_step_then_forward_fill_after_real_x(tmp_path: Path):
+def test_step_sync_default_zero_at_each_y_step_then_forward_fill_after_real_x(make_consumer):
     """无值窗口内每个 Y event 在各自 step 注入 0；真实 X 到达后恢复取最近真实值。"""
-    consumer = _make_consumer(tmp_path)
+    consumer = make_consumer()
     consumer._handle_event(MetricDefineEvent("train/acc", x_axis="epoch"))
     consumer._handle_event(MetricDefineEvent("train/loss", x_axis="epoch"))
 
@@ -146,13 +125,13 @@ def test_step_sync_default_zero_at_each_y_step_then_forward_fill_after_real_x(tm
     assert [(r.step, r.value.number) for r in epoch_records] == [(0, 0), (1, 0), (2, 3), (3, 3)]
 
 
-def test_real_x_after_injected_x_warns_once_and_updates_next_step_cache(tmp_path: Path, monkeypatch):
+def test_real_x_after_injected_x_warns_once_and_updates_next_step_cache(make_consumer, monkeypatch):
     warnings = []
     monkeypatch.setattr(
         "swanlab.sdk.internal.run.components.consumer.resolver.console.warning",
         lambda message: warnings.append(message),
     )
-    consumer = _make_consumer(tmp_path)
+    consumer = make_consumer()
     consumer._handle_event(MetricDefineEvent("train/loss", x_axis="epoch"))
     _log(consumer, {"epoch": 3}, step=0, seconds=10)
     _log(consumer, {"train/loss": 0.8}, step=1, seconds=20)
@@ -176,9 +155,9 @@ def test_real_x_after_injected_x_warns_once_and_updates_next_step_cache(tmp_path
 # ============================================================
 
 
-def test_duplicate_x_drops_second_y(tmp_path: Path):
+def test_duplicate_x_drops_second_y(make_consumer):
     """X 只 log 一次，两次 Y log → 第二次 Y 丢弃（注入相同 X 值）。"""
-    consumer = _make_consumer(tmp_path)
+    consumer = make_consumer()
     consumer._handle_event(MetricDefineEvent("acc", x_axis="x1"))
     _log(consumer, {"x1": 5}, step=0, seconds=10)
     start = len(consumer._scalar_batch)
@@ -191,9 +170,9 @@ def test_duplicate_x_drops_second_y(tmp_path: Path):
     assert acc_records[0].value.number == pytest.approx(0.9)
 
 
-def test_different_x_values_accepted(tmp_path: Path):
+def test_different_x_values_accepted(make_consumer):
     """X 更新后，新 X 值的 Y 被接受。"""
-    consumer = _make_consumer(tmp_path)
+    consumer = make_consumer()
     consumer._handle_event(MetricDefineEvent("acc", x_axis="x1"))
     _log(consumer, {"x1": 5}, step=0, seconds=10)
     _log(consumer, {"acc": 0.9}, step=1, seconds=20)  # inject x1=5.0 → accepted
@@ -207,9 +186,9 @@ def test_different_x_values_accepted(tmp_path: Path):
     assert acc_records[0].value.number == pytest.approx(1.0)
 
 
-def test_explicit_same_x_value_rejected(tmp_path: Path):
+def test_explicit_same_x_value_rejected(make_consumer):
     """显式 log X=5 在不同 step，Y 仍按 X 值去重。"""
-    consumer = _make_consumer(tmp_path)
+    consumer = make_consumer()
     consumer._handle_event(MetricDefineEvent("acc", x_axis="x1"))
 
     _log(consumer, {"x1": 5, "acc": 0.9}, step=0, seconds=10)  # accepted
@@ -220,9 +199,9 @@ def test_explicit_same_x_value_rejected(tmp_path: Path):
     assert acc_records[0].value.number == pytest.approx(0.9)
 
 
-def test_multiple_y_sharing_x_independent(tmp_path: Path):
+def test_multiple_y_sharing_x_independent(make_consumer):
     """loss 和 acc 共享 x1，各自独立去重。"""
-    consumer = _make_consumer(tmp_path)
+    consumer = make_consumer()
     consumer._handle_event(MetricDefineEvent("loss", x_axis="x1"))
     consumer._handle_event(MetricDefineEvent("acc", x_axis="x1"))
     _log(consumer, {"x1": 5}, step=0, seconds=10)
@@ -238,9 +217,9 @@ def test_multiple_y_sharing_x_independent(tmp_path: Path):
     assert len(acc_records) == 0
 
 
-def test_no_custom_x_no_dedup(tmp_path: Path):
+def test_no_custom_x_no_dedup(make_consumer):
     """无 custom X 轴时，不触发去重。"""
-    consumer = _make_consumer(tmp_path)
+    consumer = make_consumer()
 
     _log(consumer, {"acc": 0.9}, step=0, seconds=10)
     _log(consumer, {"acc": 1.0}, step=1, seconds=20)
@@ -256,9 +235,9 @@ def test_no_custom_x_no_dedup(tmp_path: Path):
 # ============================================================
 
 
-def test_nan_x_value_not_overwritten_by_injection(tmp_path: Path):
+def test_nan_x_value_not_overwritten_by_injection(make_consumer):
     """X 为 NaN 时，落盘的应是 nan（用户显式值），而非被注入的旧值 3.0。"""
-    consumer = _make_consumer(tmp_path)
+    consumer = make_consumer()
     consumer._handle_event(MetricDefineEvent("loss", x_axis="epoch"))
     _log(consumer, {"epoch": 3}, step=0, seconds=10)
     _log(consumer, {"epoch": float("nan"), "loss": 0.8}, step=1, seconds=20)
@@ -277,9 +256,9 @@ def test_nan_x_value_not_overwritten_by_injection(tmp_path: Path):
 # ============================================================
 
 
-def test_dropped_y_leaves_no_orphan_injected_x(tmp_path: Path):
+def test_dropped_y_leaves_no_orphan_injected_x(make_consumer):
     """Y 被 X 值去重丢弃时，不为其注入孤儿 X 点（注入只对存活 Y commit）。"""
-    consumer = _make_consumer(tmp_path)
+    consumer = make_consumer()
     consumer._handle_event(MetricDefineEvent("loss", x_axis="epoch"))
     _log(consumer, {"epoch": 5}, step=0, seconds=10)
     _log(consumer, {"loss": 0.9}, step=1, seconds=20)  # inject epoch=5@1，Y 存活
@@ -294,14 +273,14 @@ def test_dropped_y_leaves_no_orphan_injected_x(tmp_path: Path):
     assert [r for r in new_records if r.key == "epoch" and r.step == 2] == []
 
 
-def test_dropped_y_no_spurious_real_conflict_warning(tmp_path: Path, monkeypatch):
+def test_dropped_y_no_spurious_real_conflict_warning(make_consumer, monkeypatch):
     """Y 被丢弃后未标 INJECTED，真实 X 晚到同 step 不触发误 REAL_CONFLICT。"""
     warnings = []
     monkeypatch.setattr(
         "swanlab.sdk.internal.run.components.consumer.resolver.console.warning",
         lambda message: warnings.append(message),
     )
-    consumer = _make_consumer(tmp_path)
+    consumer = make_consumer()
     consumer._handle_event(MetricDefineEvent("loss", x_axis="epoch"))
     _log(consumer, {"epoch": 5}, step=0, seconds=10)
     _log(consumer, {"loss": 0.9}, step=1, seconds=20)  # inject epoch=5@1（Y 存活，标 INJECTED@1）
@@ -312,9 +291,9 @@ def test_dropped_y_no_spurious_real_conflict_warning(tmp_path: Path, monkeypatch
     assert conflict == []
 
 
-def test_step_sync_false_does_not_inject_cached_x(tmp_path: Path):
+def test_step_sync_false_does_not_inject_cached_x(make_consumer):
     """step_sync=False：X/Y 分次 log 时不注入 X。"""
-    consumer = _make_consumer(tmp_path)
+    consumer = make_consumer()
     consumer._handle_event(MetricDefineEvent("train/loss", x_axis="epoch", step_sync=False))
     _log(consumer, {"epoch": 3}, step=0, seconds=10)
     start = len(consumer._scalar_batch)
@@ -327,9 +306,9 @@ def test_step_sync_false_does_not_inject_cached_x(tmp_path: Path):
     assert records["train/loss"][0].step == 1
 
 
-def test_step_sync_false_does_not_drop_y_from_cached_x(tmp_path: Path):
+def test_step_sync_false_does_not_drop_y_from_cached_x(make_consumer):
     """False 不用跨 step cache 去重：event 不含 X 时 Y 保留。"""
-    consumer = _make_consumer(tmp_path)
+    consumer = make_consumer()
     consumer._handle_event(MetricDefineEvent("acc", x_axis="x1", step_sync=False))
     _log(consumer, {"x1": 5, "acc": 0.9}, step=0, seconds=10)
     start = len(consumer._scalar_batch)
@@ -342,9 +321,9 @@ def test_step_sync_false_does_not_drop_y_from_cached_x(tmp_path: Path):
     assert [r for r in consumer._scalar_batch[start:] if r.key == "x1"] == []
 
 
-def test_step_sync_false_still_drops_y_when_event_has_duplicate_x(tmp_path: Path):
+def test_step_sync_false_still_drops_y_when_event_has_duplicate_x(make_consumer):
     """False 仍按本 event 显式 X 去重。"""
-    consumer = _make_consumer(tmp_path)
+    consumer = make_consumer()
     consumer._handle_event(MetricDefineEvent("acc", x_axis="x1", step_sync=False))
     _log(consumer, {"x1": 5, "acc": 0.9}, step=0, seconds=10)
     _log(consumer, {"x1": 5, "acc": 1.0}, step=1, seconds=20)
@@ -354,9 +333,9 @@ def test_step_sync_false_still_drops_y_when_event_has_duplicate_x(tmp_path: Path
     assert acc_records[0].value.number == pytest.approx(0.9)
 
 
-def test_step_sync_false_same_step_real_x_does_not_inject_or_drop(tmp_path: Path):
+def test_step_sync_false_same_step_real_x_does_not_inject_or_drop(make_consumer):
     """False 不用本 step 真实 X：分次 log 时 Y 保留、不注入。"""
-    consumer = _make_consumer(tmp_path)
+    consumer = make_consumer()
     consumer._handle_event(MetricDefineEvent("acc", x_axis="x1", step_sync=False))
     _log(consumer, {"x1": 5}, step=1, seconds=10)
     start = len(consumer._scalar_batch)
@@ -368,9 +347,9 @@ def test_step_sync_false_same_step_real_x_does_not_inject_or_drop(tmp_path: Path
     assert records["acc"][0].value.number == pytest.approx(0.9)
 
 
-def test_step_sync_false_sibling_does_not_block_true_sibling_inject(tmp_path: Path):
+def test_step_sync_false_sibling_does_not_block_true_sibling_inject(make_consumer):
     """False 的 Y 不触发注入；同 event 的 True 兄弟仍注入共享 X。"""
-    consumer = _make_consumer(tmp_path)
+    consumer = make_consumer()
     consumer._handle_event(MetricDefineEvent("train/acc", x_axis="epoch", step_sync=False))
     consumer._handle_event(MetricDefineEvent("train/loss", x_axis="epoch"))
     _log(consumer, {"epoch": 3}, step=0, seconds=10)
@@ -385,9 +364,9 @@ def test_step_sync_false_sibling_does_not_block_true_sibling_inject(tmp_path: Pa
     assert records["epoch"][0].step == 1
 
 
-def test_step_sync_false_alone_does_not_inject_even_with_true_sibling_defined(tmp_path: Path):
+def test_step_sync_false_alone_does_not_inject_even_with_true_sibling_defined(make_consumer):
     """仅 False 的 Y 出现时不注入，即使存在 step_sync=True 的兄弟 rule。"""
-    consumer = _make_consumer(tmp_path)
+    consumer = make_consumer()
     consumer._handle_event(MetricDefineEvent("train/acc", x_axis="epoch", step_sync=False))
     consumer._handle_event(MetricDefineEvent("train/loss", x_axis="epoch"))
     _log(consumer, {"epoch": 3}, step=0, seconds=10)
@@ -399,9 +378,9 @@ def test_step_sync_false_alone_does_not_inject_even_with_true_sibling_defined(tm
     assert set(records) == {"train/acc"}
 
 
-def test_overwrite_resets_step_sync_to_true_before_first_log(tmp_path: Path):
+def test_overwrite_resets_step_sync_to_true_before_first_log(make_consumer):
     """overwrite=True 且未指定 step_sync 时恢复默认注入。"""
-    consumer = _make_consumer(tmp_path)
+    consumer = make_consumer()
     consumer._handle_event(MetricDefineEvent("train/loss", x_axis="epoch", step_sync=False))
     consumer._handle_event(MetricDefineEvent("train/loss", x_axis="epoch", overwrite=True))
     _log(consumer, {"epoch": 3}, step=0, seconds=10)
@@ -415,14 +394,14 @@ def test_overwrite_resets_step_sync_to_true_before_first_log(tmp_path: Path):
     assert records["epoch"][0].step == 1
 
 
-def test_self_reference_x_axis_keeps_first_log_wins(tmp_path: Path):
+def test_self_reference_x_axis_keeps_first_log_wins(make_consumer):
     """自引用 x_axis（x_axis == key）：正常落盘自身值，且 first-writer-wins 语义不变。
 
     - 自引用 key 恒随 Y 出现，不触发 step_sync 注入；
     - 连续重复 X 值按既有 epsilon 规则丢弃该 Y 点；
     - 二次 define 不改变已冻结 concrete（仍自引用）。
     """
-    consumer = _make_consumer(tmp_path)
+    consumer = make_consumer()
     consumer._handle_event(MetricDefineEvent("epoch", x_axis="epoch"))
 
     _log(consumer, {"epoch": 1}, step=0, seconds=10)
@@ -453,8 +432,8 @@ def test_self_reference_x_axis_keeps_first_log_wins(tmp_path: Path):
 # ============================================================
 
 
-def test_no_custom_x_mixed_media_and_scalar_log(tmp_path: Path):
-    consumer = _make_consumer(tmp_path)
+def test_no_custom_x_mixed_media_and_scalar_log(make_consumer):
+    consumer = make_consumer()
     assert consumer._resolver.has_custom_x is False
 
     _log(consumer, {"train/loss": 0.8, "train/text": Text("hello")}, step=0, seconds=10)
