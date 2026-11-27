@@ -106,6 +106,19 @@ def test_channel_open_disables_grpc_idle_timeout(monkeypatch):
     channel.close()
 
     assert ("grpc.client_idle_timeout_ms", 2**31 - 1) in captured["options"]
+    assert ("grpc.enable_http_proxy", 0) in captured["options"]
+
+
+def test_channel_open_ignores_http_proxy_env_on_loopback(monkeypatch):
+    grpc = pytest.importorskip("grpc")
+    monkeypatch.setenv("http_proxy", "http://127.0.0.1:1")
+    monkeypatch.setenv("HTTP_PROXY", "http://127.0.0.1:1")
+    monkeypatch.delenv("no_proxy", raising=False)
+    monkeypatch.delenv("NO_PROXY", raising=False)
+
+    with _abort_server(grpc.StatusCode.OK) as port:
+        channel = Channel.open(Endpoint(kind="tcp", pid=os.getpid(), tcp_port=port), timeout=2.0)
+        channel.close()
 
 
 def test_channel_rejects_oversized_request_before_send():

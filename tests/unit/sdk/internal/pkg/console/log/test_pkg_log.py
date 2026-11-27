@@ -148,3 +148,23 @@ def test_secure_file_permissions(tmp_path):
 
         # 验证权限是否被严格限制为 0o600 (即 rw-------，仅所有者可读写)
         assert permissions == 0o600
+
+
+def test_secure_handler_tolerates_chmod_oserror(tmp_path, monkeypatch):
+    """在 NFS/FUSE 等不支持 chmod 的挂载上，chmod 失败不应阻断 init 与日志写入。"""
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    log_mod.reset()
+
+    def fail_chmod(*_args, **_kwargs):
+        raise PermissionError("operation not supported")
+
+    monkeypatch.setattr(log_mod.os, "chmod", fail_chmod)
+    try:
+        log_mod.init(bind_to=log_dir)
+        log_mod.info("still works")
+    finally:
+        log_mod.reset()
+
+    content = (log_dir / "debug.log").read_text(encoding="utf-8")
+    assert "still works" in content

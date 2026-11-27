@@ -34,7 +34,7 @@ from swanlab.sdk.internal.core_go.runtime import (
     discover_endpoint,
     validate_core_binary,
 )
-from swanlab.sdk.internal.pkg import fork
+from swanlab.sdk.internal.pkg import console, fork
 
 __all__ = ["CoreLauncher"]
 
@@ -65,6 +65,7 @@ class CoreLauncher:
         lease: Optional[RuntimeLease] = None,
         detach: bool = False,
         idle_timeout: float = DETACH_IDLE_TIMEOUT,
+        log_dir: Optional[Path] = None,
     ) -> None:
         if idle_timeout < 0:
             raise ValueError("idle_timeout must be non-negative")
@@ -72,6 +73,7 @@ class CoreLauncher:
         self._injected_lease = lease
         self._detach = detach
         self._idle_timeout = idle_timeout
+        self._log_dir = Path(log_dir) if log_dir is not None else None
         self._lease: Optional[RuntimeLease] = None
         self._proc: Optional[subprocess.Popen] = None
         self._channel: Optional[Channel] = None
@@ -196,11 +198,13 @@ class CoreLauncher:
         if self._injected_lease is None:
             # 持锁且确认旧端点已失效后清理残留 port-file，防止 wait_endpoint 误读旧 PID。
             lease.port_file.unlink(missing_ok=True)
+        log_dir = self._resolve_log_dir_locked(lease)
         proc = spawn_core(
             self._binary,
             lease,
             detach=self._detach,
             idle_timeout=self._idle_timeout,
+            log_dir=log_dir,
             validated=True,
         )
         self._proc = proc
@@ -261,6 +265,19 @@ class CoreLauncher:
             self._exit_code = reap_process(proc)
         if owns_process and lease is not None and (not self._detach or startup_failed):
             cleanup_runtime(lease)
+
+    def _resolve_log_dir_locked(self, lease: RuntimeLease) -> Optional[Path]:
+        """解析并确保 swanlab-core 诊断日志目录就绪；不可写时降级跳过，不阻塞 Core 启动。"""
+        target = self._log_dir if self._log_dir is not None else (lease.dir if self._detach else None)
+        if target is None:
+            return None
+        try:
+            resolved = target.resolve()
+            resolved.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            console.debug(f"failed to prepare core log dir {target}: {exc}")
+            return None
+        return resolved
 
     def _validate_lease(self, lease: RuntimeLease) -> None:
         if lease.owner_pid != self._owner_pid:

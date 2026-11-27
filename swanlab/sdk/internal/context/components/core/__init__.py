@@ -105,9 +105,13 @@ def create_core(ctx: "RunContext", backend: Optional[CoreBackend] = None) -> Cor
 
     from swanlab.sdk.internal.core_go import CoreGo
 
+    detach = resolve_detach(ctx.config.settings)
+    log_dir = ctx.debug_dir if not detach and mode != "disabled" and not ctx.config.settings.core.skip_store else None
+
     return CoreGo(
         mode=mode,
         binary=resolved.binary,
-        detach=resolve_detach(ctx.config.settings),
+        detach=detach,
         idle_timeout=ctx.config.settings.core.idle_timeout,
+        log_dir=log_dir,
     )

@@ -727,3 +727,30 @@ def test_close_records_core_exit_code(fake_launcher_cls):
     core.close()
 
     assert core.exit_code == 0
+
+
+def test_core_go_forwards_log_dir_to_launcher(install_fake_launcher, monkeypatch, tmp_path):
+    launchers, _ = install_fake_launcher(core_module)
+
+    class StubRpc:
+        def __init__(self, _channel) -> None:
+            pass
+
+        def spinup(self) -> None:
+            pass
+
+        def deliver_run_start(self, _request) -> DeliverRunStartResponse:
+            return DeliverRunStartResponse(success=True, session_id="s-1")
+
+        def teardown(self, timeout: float = 0.0) -> None:
+            _ = timeout
+
+    monkeypatch.setattr(core_module, "CoreServiceRpc", StubRpc)
+    log_dir = tmp_path / "debug"
+    core = CoreGo("local", binary=tmp_path / "swanlab-core", log_dir=log_dir)
+
+    resp = core.deliver_run_start(DeliverRunStartRequest())
+
+    assert resp.success is True
+    assert launchers[0].log_dir == log_dir
+    core.abort()

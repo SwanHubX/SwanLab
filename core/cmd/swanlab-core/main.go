@@ -128,8 +128,8 @@ func run(args []string) int {
 	}
 	if *logDir != "" {
 		if err := console.Init(*logDir); err != nil {
-			console.Error("failed to open diagnostic log:", err)
-			return exitRunError
+			_ = console.Init("")
+			console.Warning("failed to open diagnostic log, continuing with stderr only:", err)
 		}
 		defer console.Reset()
 	}

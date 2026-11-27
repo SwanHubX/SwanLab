@@ -62,6 +62,13 @@ class CoreSyncGo(CoreGoBase[SyncState], CoreSyncProtocol):
         self._core_rpc: Optional[CoreServiceRpc] = None
         self._sync_rpc: Optional[CoreSyncRpc] = None
 
+    @staticmethod
+    def _resolve_sync_log_dir(start_request: DeliverSyncStartRequest) -> Optional[Path]:
+        raw_run_dir = start_request.core_settings.run_dir
+        if raw_run_dir and Path(raw_run_dir).is_dir():
+            return Path(raw_run_dir) / "debug"
+        return None
+
     def _teardown_rpc_locked(self) -> Optional[CoreServiceRpc]:
         return self._core_rpc
 
@@ -84,8 +91,9 @@ class CoreSyncGo(CoreGoBase[SyncState], CoreSyncProtocol):
                 return resp
             self._state = SyncState.STARTING
 
+        log_dir = self._resolve_sync_log_dir(start_request)
         try:
-            sync_rpc = self._connect_and_spinup(binary)
+            sync_rpc = self._connect_and_spinup(binary, log_dir=log_dir)
             response = sync_rpc.deliver_sync_start(start_request)
 
             with self._lock:
@@ -99,8 +107,8 @@ class CoreSyncGo(CoreGoBase[SyncState], CoreSyncProtocol):
                 raise
             return DeliverSyncStartResponse(success=False, message=str(error))
 
-    def _connect_and_spinup(self, binary: Path) -> CoreSyncRpc:
-        launcher = CoreLauncher(binary, detach=False)
+    def _connect_and_spinup(self, binary: Path, *, log_dir: Optional[Path] = None) -> CoreSyncRpc:
+        launcher = CoreLauncher(binary, detach=False, log_dir=log_dir)
         with self._lock:
             if self._state is not SyncState.STARTING:
                 raise CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "sync core was closed during startup")

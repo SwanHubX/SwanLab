@@ -64,6 +64,8 @@ class Channel:
             ("grpc.max_receive_message_length", GRPC_MAX_MESSAGE_BYTES),
             ("grpc.max_send_message_length", GRPC_MAX_MESSAGE_BYTES),
             ("grpc.client_idle_timeout_ms", _IDLE_TIMEOUT_DISABLED_MS),
+            # 本地 IPC（UDS / 127.0.0.1）严禁走 HTTP_PROXY
+            ("grpc.enable_http_proxy", 0),
         ]
         try:
             raw = grpc.insecure_channel(target, options=options)

@@ -70,13 +70,15 @@ def spawn_core(
     *,
     detach: bool = False,
     idle_timeout: float = 0.0,
+    log_dir: Optional[Path] = None,
     validated: bool = False,
 ) -> subprocess.Popen:
     """拉起 swanlab-core，返回 Popen。
 
-    Owner Mode 下只传 --port-filename / --parent-pid；Detached Mode（detach=True）
+    Owner Mode 下传 --port-filename / --parent-pid；Detached Mode（detach=True）
     传 --port-filename / --detach（及正数 --idle-timeout），不绑定父进程生命周期。
-    子进程 cwd 是 runtime 目录，因此相对路径必须先按调用方 cwd 解析为绝对路径。
+    传入 ``log_dir`` 时追加 ``--log-dir`` 开启诊断日志持久化；子进程 cwd 是
+    runtime 目录，因此相对路径必须先按调用方 cwd 解析为绝对路径。
     """
     if idle_timeout < 0:
         raise ValueError("idle_timeout must be non-negative")
@@ -107,6 +109,8 @@ def spawn_core(
             argv.extend(["--idle-timeout", _format_go_duration(idle_timeout)])
     else:
         argv.extend(["--parent-pid", str(parent_pid if parent_pid is not None else fork.current_pid())])
+    if log_dir is not None:
+        argv.extend(["--log-dir", str(Path(log_dir).resolve())])
 
     kwargs = {
         "args": argv,
