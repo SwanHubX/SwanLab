@@ -22,6 +22,7 @@ class FakeLauncher:
         *,
         detach: bool = False,
         idle_timeout: float = 0.0,
+        log_dir: Optional[Path] = None,
         owns_process: bool = True,
         exit_code: Optional[int] = None,
         channel: Any = None,
@@ -30,6 +31,7 @@ class FakeLauncher:
         self.binary = binary
         self.detach = detach
         self.idle_timeout = idle_timeout
+        self.log_dir = log_dir
         self.owns_process = owns_process
         self.process_exited = False
         self.channel = object() if channel is None else channel
@@ -94,7 +96,12 @@ def install_fake_launcher(monkeypatch):
 
         class RecordingLauncher(FakeLauncher):
             def __init__(
-                self, binary: Optional[Path] = None, *, detach: bool = False, idle_timeout: float = 0.0
+                self,
+                binary: Optional[Path] = None,
+                *,
+                detach: bool = False,
+                idle_timeout: float = 0.0,
+                log_dir: Optional[Path] = None,
             ) -> None:
                 index = len(instances)
                 owned = owns_process(index) if callable(owns_process) else owns_process
@@ -104,6 +111,7 @@ def install_fake_launcher(monkeypatch):
                     binary,
                     detach=detach,
                     idle_timeout=idle_timeout,
+                    log_dir=log_dir,
                     owns_process=owned,
                     exit_code=code,
                     channel=channel,

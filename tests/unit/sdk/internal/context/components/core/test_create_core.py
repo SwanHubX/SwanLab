@@ -29,11 +29,14 @@ def _ctx(
     detach: Optional[bool] = None,
     idle_timeout: float = DETACH_IDLE_TIMEOUT,
     parallel: str = "none",
+    skip_store: bool = False,
+    debug_dir: Optional[Path] = None,
 ) -> RunContext:
     ctx = MagicMock()
     ctx.config.settings.mode = mode
-    ctx.config.settings.core = CoreSettings(detach=detach, idle_timeout=idle_timeout)
+    ctx.config.settings.core = CoreSettings(detach=detach, idle_timeout=idle_timeout, skip_store=skip_store)
     ctx.config.settings.run.parallel = parallel
+    ctx.debug_dir = debug_dir if debug_dir is not None else Path("/tmp/test-run/debug")
     return cast(RunContext, ctx)
 
 
@@ -268,3 +271,48 @@ class TestDetachIgnoredForCorePython:
         assert len(warnings) == 1
         assert "falling back" in warnings[0]
         assert "detach" not in warnings[0]
+
+
+class TestLogDirRouting:
+    """Owner Mode 下非 disabled/skip_store 写入 run debug_dir，其余情况交由 CoreLauncher 兜底或跳过。"""
+
+    @pytest.mark.parametrize("mode", ["online", "offline", "local"])
+    def test_owner_mode_passes_ctx_debug_dir(self, monkeypatch, tmp_path, mode):
+        helper.set_core_impl(CoreEnum.CORE)
+        binary = _write_binary(tmp_path / "swanlab-core")
+        monkeypatch.setattr(runtime_module, "locate_core_binary", lambda: binary)
+        debug_dir = tmp_path / "swanlog" / "run-1" / "debug"
+
+        core = core_factory.create_core(_ctx(mode, debug_dir=debug_dir))
+
+        assert isinstance(core, CoreGo)
+        assert core._log_dir == debug_dir  # noqa: SLF001
+
+    def test_skip_store_passes_none_log_dir(self, monkeypatch, tmp_path):
+        helper.set_core_impl(CoreEnum.CORE)
+        binary = _write_binary(tmp_path / "swanlab-core")
+        monkeypatch.setattr(runtime_module, "locate_core_binary", lambda: binary)
+
+        core = core_factory.create_core(_ctx("online", skip_store=True, debug_dir=tmp_path / "debug"))
+
+        assert isinstance(core, CoreGo)
+        assert core._log_dir is None  # noqa: SLF001
+
+    def test_disabled_mode_passes_none_log_dir(self, tmp_path):
+        helper.set_core_impl(CoreEnum.CORE)
+
+        core = core_factory.create_core(_ctx("disabled", debug_dir=tmp_path / "debug"))
+
+        assert isinstance(core, CoreGo)
+        assert core._log_dir is None  # noqa: SLF001
+
+    @pytest.mark.parametrize("kwargs", [{"detach": True}, {"parallel": "shared"}])
+    def test_detached_mode_passes_none_log_dir(self, monkeypatch, tmp_path, kwargs):
+        helper.set_core_impl(CoreEnum.CORE)
+        binary = _write_binary(tmp_path / "swanlab-core")
+        monkeypatch.setattr(runtime_module, "locate_core_binary", lambda: binary)
+
+        core = core_factory.create_core(_ctx("online", debug_dir=tmp_path / "debug", **kwargs))
+
+        assert isinstance(core, CoreGo)
+        assert core._log_dir is None  # noqa: SLF001

@@ -93,12 +93,14 @@ class CoreGo(CoreGoBase[CoreState], CoreProtocol):
         binary: Optional[Path] = None,
         detach: bool = False,
         idle_timeout: float = DETACH_IDLE_TIMEOUT,
+        log_dir: Optional[Path] = None,
     ) -> None:
         CoreProtocol.__init__(self, mode)
         if idle_timeout < 0:
             raise ValueError("idle_timeout must be non-negative")
         self._init_lifecycle(binary=binary, detach=detach, initial_state=CoreState.NEW)
         self._idle_timeout = idle_timeout
+        self._log_dir = Path(log_dir) if log_dir is not None else None
         self._rpc: Optional[CoreServiceRpc] = None
         self._session_id: Optional[str] = None
 
@@ -149,7 +151,12 @@ class CoreGo(CoreGoBase[CoreState], CoreProtocol):
         """建立通道并完成 Spinup；复用即将空闲退出的 detached Core 时重试拉起。"""
         max_attempts = 3 if self._detach else 1
         for attempt in range(max_attempts):
-            launcher = CoreLauncher(binary, detach=self._detach, idle_timeout=self._idle_timeout)
+            launcher = CoreLauncher(
+                binary,
+                detach=self._detach,
+                idle_timeout=self._idle_timeout,
+                log_dir=self._log_dir,
+            )
             with self._lock:
                 if self._state is not CoreState.STARTING:
                     raise CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "core was closed during startup")

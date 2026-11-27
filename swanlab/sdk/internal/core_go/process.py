@@ -21,6 +21,7 @@ from swanlab.sdk.internal.core_go.config import (
     EXIT_USAGE_ERROR,
     KILL_TIMEOUT,
     PORT_FILE_TIMEOUT,
+    STDERR_MAX_BYTES,
     STDERR_TAIL_BYTES,
     TERMINATE_TIMEOUT,
     WAIT_TIMEOUT,
@@ -53,6 +54,16 @@ def stderr_tail(lease: RuntimeLease) -> str:
     return data.decode("utf-8", "replace")
 
 
+def _rotate_stderr_if_needed(stderr_file: Path) -> None:
+    """在启动拉起前按大小上限轮转 core.stderr.log，避免 Detached Mode 无限增长。"""
+    try:
+        if stderr_file.stat().st_size < STDERR_MAX_BYTES:
+            return
+        os.replace(stderr_file, stderr_file.with_name(f"{stderr_file.name}.1"))
+    except OSError:
+        return
+
+
 def _format_go_duration(seconds: float) -> str:
     """将非负秒数格式化为 Go time.ParseDuration 可解析的固定小数/毫秒串，避免科学计数法。"""
     if seconds <= 0:
@@ -70,13 +81,15 @@ def spawn_core(
     *,
     detach: bool = False,
     idle_timeout: float = 0.0,
+    log_dir: Optional[Path] = None,
     validated: bool = False,
 ) -> subprocess.Popen:
     """拉起 swanlab-core，返回 Popen。
 
-    Owner Mode 下只传 --port-filename / --parent-pid；Detached Mode（detach=True）
+    Owner Mode 下传 --port-filename / --parent-pid；Detached Mode（detach=True）
     传 --port-filename / --detach（及正数 --idle-timeout），不绑定父进程生命周期。
-    子进程 cwd 是 runtime 目录，因此相对路径必须先按调用方 cwd 解析为绝对路径。
+    传入 ``log_dir`` 时追加 ``--log-dir`` 开启诊断日志持久化；子进程 cwd 是
+    runtime 目录，因此相对路径必须先按调用方 cwd 解析为绝对路径。
     """
     if idle_timeout < 0:
         raise ValueError("idle_timeout must be non-negative")
@@ -107,6 +120,8 @@ def spawn_core(
             argv.extend(["--idle-timeout", _format_go_duration(idle_timeout)])
     else:
         argv.extend(["--parent-pid", str(parent_pid if parent_pid is not None else fork.current_pid())])
+    if log_dir is not None:
+        argv.extend(["--log-dir", str(Path(log_dir).resolve())])
 
     kwargs = {
         "args": argv,
@@ -120,8 +135,10 @@ def spawn_core(
     else:
         kwargs["start_new_session"] = True
 
+    stderr_file = Path(lease.stderr_file)
+    _rotate_stderr_if_needed(stderr_file)
     try:
-        with Path(lease.stderr_file).open("ab") as stderr:
+        with stderr_file.open("ab") as stderr:
             return subprocess.Popen(stderr=stderr, **kwargs)
     except OSError as exc:
         raise CoreGoError(

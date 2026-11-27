@@ -266,3 +266,34 @@ def test_fork_child_does_not_teardown_parent_core(patch_sync_dependencies, monke
     assert core_rpcs[0].teardowns == []
     assert launchers[0].closed == 0
     assert launchers[0].aborted == 0
+
+
+def test_sync_derives_debug_dir_from_existing_run_dir(patch_sync_dependencies, tmp_path: Path):
+    launchers, _, _ = patch_sync_dependencies
+    run_dir = tmp_path / "run-123"
+    run_dir.mkdir()
+    core = CoreSyncGo(binary=tmp_path / "swanlab-core")
+    req = DeliverSyncStartRequest(project="proj")
+    req.core_settings.run_dir = str(run_dir)
+
+    assert core.deliver_sync_start(req).success is True
+    assert launchers[0].log_dir == run_dir / "debug"
+    core.abort()
+
+
+def test_sync_skips_log_dir_when_run_dir_missing_and_respects_explicit_override(
+    patch_sync_dependencies, tmp_path: Path
+):
+    launchers, _, _ = patch_sync_dependencies
+    core_empty = CoreSyncGo(binary=tmp_path / "swanlab-core")
+    assert core_empty.deliver_sync_start(DeliverSyncStartRequest()).success is True
+    assert launchers[0].log_dir is None
+    core_empty.abort()
+
+    explicit = tmp_path / "custom-debug"
+    core_override = CoreSyncGo(binary=tmp_path / "swanlab-core", log_dir=explicit)
+    req = DeliverSyncStartRequest()
+    req.core_settings.run_dir = str(tmp_path)
+    assert core_override.deliver_sync_start(req).success is True
+    assert launchers[1].log_dir == explicit
+    core_override.abort()

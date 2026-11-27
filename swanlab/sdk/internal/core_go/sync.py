@@ -56,11 +56,20 @@ class CoreSyncGo(CoreGoBase[SyncState], CoreSyncProtocol):
     _close_abort_states = (SyncState.STARTING, SyncState.FLUSHING)
     _teardown_log_prefix = "sync core"
 
-    def __init__(self, *, binary: Optional[Path] = None) -> None:
+    def __init__(self, *, binary: Optional[Path] = None, log_dir: Optional[Path] = None) -> None:
         CoreSyncProtocol.__init__(self)
         self._init_lifecycle(binary=binary, detach=False, initial_state=SyncState.NEW)
+        self._log_dir = Path(log_dir) if log_dir is not None else None
         self._core_rpc: Optional[CoreServiceRpc] = None
         self._sync_rpc: Optional[CoreSyncRpc] = None
+
+    def _resolve_sync_log_dir(self, start_request: DeliverSyncStartRequest) -> Optional[Path]:
+        if self._log_dir is not None:
+            return self._log_dir
+        raw_run_dir = start_request.core_settings.run_dir
+        if raw_run_dir and Path(raw_run_dir).is_dir():
+            return Path(raw_run_dir) / "debug"
+        return None
 
     def _teardown_rpc_locked(self) -> Optional[CoreServiceRpc]:
         return self._core_rpc
@@ -84,8 +93,9 @@ class CoreSyncGo(CoreGoBase[SyncState], CoreSyncProtocol):
                 return resp
             self._state = SyncState.STARTING
 
+        log_dir = self._resolve_sync_log_dir(start_request)
         try:
-            sync_rpc = self._connect_and_spinup(binary)
+            sync_rpc = self._connect_and_spinup(binary, log_dir=log_dir)
             response = sync_rpc.deliver_sync_start(start_request)
 
             with self._lock:
@@ -99,8 +109,8 @@ class CoreSyncGo(CoreGoBase[SyncState], CoreSyncProtocol):
                 raise
             return DeliverSyncStartResponse(success=False, message=str(error))
 
-    def _connect_and_spinup(self, binary: Path) -> CoreSyncRpc:
-        launcher = CoreLauncher(binary, detach=False)
+    def _connect_and_spinup(self, binary: Path, *, log_dir: Optional[Path] = None) -> CoreSyncRpc:
+        launcher = CoreLauncher(binary, detach=False, log_dir=log_dir)
         with self._lock:
             if self._state is not SyncState.STARTING:
                 raise CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "sync core was closed during startup")

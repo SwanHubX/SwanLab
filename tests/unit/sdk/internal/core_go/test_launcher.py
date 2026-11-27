@@ -570,7 +570,7 @@ def test_owner_runs_are_isolated_from_each_other_and_shared_attach(short_tmp_pat
 
 @pytest.mark.parametrize("action", ["close", "abort"])
 def test_detach_launcher_close_and_abort_skip_reap(launcher_env, monkeypatch, action):
-    binary, _, endpoint, calls = launcher_env
+    binary, lease, endpoint, calls = launcher_env
     spawn_kwargs = {}
 
     def fake_detach_spawn(binary_path: Path, runtime: RuntimeLease, **kwargs):
@@ -582,7 +582,12 @@ def test_detach_launcher_close_and_abort_skip_reap(launcher_env, monkeypatch, ac
 
     launcher = CoreLauncher(binary, detach=True, idle_timeout=2.0)
     assert launcher.start() == endpoint
-    assert spawn_kwargs == {"detach": True, "idle_timeout": 2.0, "validated": True}
+    assert spawn_kwargs == {
+        "detach": True,
+        "idle_timeout": 2.0,
+        "log_dir": lease.dir.resolve(),
+        "validated": True,
+    }
 
     channel = cast(Any, launcher.channel)
     getattr(launcher, action)()
@@ -630,3 +635,72 @@ def test_detach_launcher_reaps_process_when_start_fails(launcher_env, monkeypatc
 def test_detach_launcher_rejects_negative_idle_timeout(tmp_path):
     with pytest.raises(ValueError):
         CoreLauncher(tmp_path / "swanlab-core", detach=True, idle_timeout=-0.5)
+
+
+def test_owner_launcher_creates_and_passes_explicit_log_dir(launcher_env, tmp_path, monkeypatch):
+    binary, _, _, _ = launcher_env
+    captured = {}
+
+    def fake_spawn(binary_path: Path, runtime: RuntimeLease, **kwargs):
+        captured.update(kwargs)
+        return FakeProcess()
+
+    monkeypatch.setattr(launcher_module, "spawn_core", fake_spawn)
+    log_dir = tmp_path / "run" / "debug"
+
+    launcher = CoreLauncher(binary, log_dir=log_dir)
+    launcher.start()
+
+    assert log_dir.is_dir()
+    assert captured["log_dir"] == log_dir.resolve()
+
+
+def test_owner_launcher_without_log_dir_passes_none(launcher_env, monkeypatch):
+    binary, _, _, _ = launcher_env
+    captured = {}
+
+    def fake_spawn(binary_path: Path, runtime: RuntimeLease, **kwargs):
+        captured.update(kwargs)
+        return FakeProcess()
+
+    monkeypatch.setattr(launcher_module, "spawn_core", fake_spawn)
+
+    CoreLauncher(binary).start()
+
+    assert captured["log_dir"] is None
+
+
+def test_detach_launcher_explicit_log_dir_overrides_runtime_dir(launcher_env, tmp_path, monkeypatch):
+    binary, _, _, _ = launcher_env
+    captured = {}
+
+    def fake_spawn(binary_path: Path, runtime: RuntimeLease, **kwargs):
+        captured.update(kwargs)
+        return FakeProcess()
+
+    monkeypatch.setattr(launcher_module, "spawn_core", fake_spawn)
+    custom_dir = tmp_path / "shared-debug"
+
+    CoreLauncher(binary, detach=True, log_dir=custom_dir).start()
+
+    assert custom_dir.is_dir()
+    assert captured["log_dir"] == custom_dir.resolve()
+
+
+def test_launcher_degrades_when_log_dir_mkdir_fails(launcher_env, tmp_path, monkeypatch):
+    binary, _, _, _ = launcher_env
+    captured = {}
+
+    def fake_spawn(binary_path: Path, runtime: RuntimeLease, **kwargs):
+        captured.update(kwargs)
+        return FakeProcess()
+
+    def fail_mkdir(self, *args, **kwargs):
+        raise PermissionError("read-only filesystem")
+
+    monkeypatch.setattr(launcher_module, "spawn_core", fake_spawn)
+    monkeypatch.setattr(Path, "mkdir", fail_mkdir)
+
+    CoreLauncher(binary, log_dir=tmp_path / "unwritable").start()
+
+    assert captured["log_dir"] is None

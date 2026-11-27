@@ -5,6 +5,7 @@
 @description: SwanLab 核心模块
 """
 
+import os
 import threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -105,9 +106,17 @@ def create_core(ctx: "RunContext", backend: Optional[CoreBackend] = None) -> Cor
 
     from swanlab.sdk.internal.core_go import CoreGo
 
+    detach = resolve_detach(ctx.config.settings)
+    log_dir: Optional[Path] = None
+    if not detach and mode != "disabled" and not ctx.config.settings.core.skip_store:
+        raw_debug_dir = getattr(ctx, "debug_dir", None)
+        if isinstance(raw_debug_dir, (str, os.PathLike)):
+            log_dir = Path(raw_debug_dir)
+
     return CoreGo(
         mode=mode,
         binary=resolved.binary,
-        detach=resolve_detach(ctx.config.settings),
+        detach=detach,
         idle_timeout=ctx.config.settings.core.idle_timeout,
+        log_dir=log_dir,
     )
