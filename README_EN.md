@@ -266,7 +266,7 @@ Deployment guides:
 - [U-Net Medical Image Segmentation](https://docs.swanlab.cn/en/examples/unet-medical-segmentation.html)
 - [Audio Classification](https://docs.swanlab.cn/en/examples/audio_classification.html)
 - [DQN Reinforcement Learning — CartPole](https://docs.swanlab.cn/en/examples/dqn_cartpole.html)
-- [LSTM Google Stock Price Prediction](https://docs.swanlab.cn/en/examples/audio_classification.html)
+- [LSTM Google Stock Price Prediction](https://docs.swanlab.cn/en/examples/lstm_stock.html)
 - [BERT Text Classification](https://docs.swanlab.cn/en/examples/bert.html)
 - [Stable Diffusion Text-to-Image Fine-Tuning](https://docs.swanlab.cn/en/examples/stable_diffusion.html)
 - [LLM Pre-training from Scratch](https://docs.swanlab.cn/en/examples/pretrain_llm.html)
@@ -393,7 +393,7 @@ Below are the frameworks supported out of the box. Feel free to open an [Issue](
 
 ## 🔌 Plugins & API
 
-Extend SwanLab's capabilities and streamline your experiment workflows with plugins:
+Extend SwanLab's capabilities with plugins, or use the open API to integrate SwanLab's team management and experiment analysis features into your project — both make experiment management easier:
 
 - [Build a Custom Plugin](https://docs.swanlab.cn/en/plugin/custom-plugin.html)
 - [Email Notifications](https://docs.swanlab.cn/en/plugin/notification-email.html)
@@ -407,7 +407,8 @@ Extend SwanLab's capabilities and streamline your experiment workflows with plug
 
 Programmatic API:
 
-- [OpenAPI Reference](https://docs.swanlab.cn/en/api/py-openapi.html)
+- [OpenAPI](https://docs.swanlab.cn/en/api/py-api.html)
+- [RestAPI](https://docs.swanlab.cn/en/api/rest/)
 
 <br>
 

@@ -266,7 +266,7 @@ for i in range(10):
 - [U-Net 医用画像セグメンテーション](https://docs.swanlab.cn/en/examples/unet-medical-segmentation.html)
 - [音声分類](https://docs.swanlab.cn/en/examples/audio_classification.html)
 - [DQN 強化学習 — CartPole（倒立振子）](https://docs.swanlab.cn/en/examples/dqn_cartpole.html)
-- [LSTM Google 株価予測](https://docs.swanlab.cn/en/examples/audio_classification.html)
+- [LSTM Google 株価予測](https://docs.swanlab.cn/en/examples/lstm_stock.html)
 - [BERT テキスト分類](https://docs.swanlab.cn/en/examples/bert.html)
 - [Stable Diffusion 画像生成ファインチューニング](https://docs.swanlab.cn/en/examples/stable_diffusion.html)
 - [LLM 事前学習（Pre-training）](https://docs.swanlab.cn/en/examples/pretrain_llm.html)
@@ -393,7 +393,7 @@ SwanLab は AI 学習中に使用される**ハードウェアスペック**と*
 
 ## 🔌 プラグインと API
 
-プラグインを活用して SwanLab の機能を拡張し、実験管理ワークフローをさらに効率化しましょう！
+プラグインを活用して SwanLab の機能を拡張するほか、オープン API を使って SwanLab のチーム管理・実験分析機能をあなたのプロジェクトに組み込むこともでき、実験管理がさらに効率化されます！
 
 - [カスタムプラグインの作成](https://docs.swanlab.cn/en/plugin/custom-plugin.html)
 - [メール通知](https://docs.swanlab.cn/en/plugin/notification-email.html)
@@ -407,7 +407,8 @@ SwanLab は AI 学習中に使用される**ハードウェアスペック**と*
 
 公開 API：
 
-- [OpenAPI リファレンス](https://docs.swanlab.cn/en/api/py-openapi.html)
+- [OpenAPI](https://docs.swanlab.cn/en/api/py-api.html)
+- [RestAPI](https://docs.swanlab.cn/en/api/rest/)
 
 <br>
 
