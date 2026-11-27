@@ -1,0 +1,57 @@
+"""
+@author: Zirui Cai
+@file: checkpoint.py
+@time: 2026/11/25
+@description: Checkpoint 登记 API
+"""
+
+from typing import List, Optional
+
+from swanlab.exceptions import ApiError
+from swanlab.sdk.internal.core_python import client
+from swanlab.sdk.internal.pkg import console, helper
+
+
+def register_checkpoint(
+    *,
+    username: str,
+    project: str,
+    experiment_id: str,
+    uri: str,
+    step: Optional[int] = None,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+    metadata: Optional[dict] = None,
+    tags: Optional[List[str]] = None,
+) -> str:
+    """登记一个 checkpoint，返回平台分配的 cuid。
+
+    :param username: 项目所属用户名
+    :param project: 项目名
+    :param experiment_id: 来源实验的 cuid（即 run_id）
+    :param uri: checkpoint 路径或 URI（本地路径、S3、HF Hub URL 等）
+    :param step: 保存时的训练步数；None 表示未记录
+    :param name: checkpoint 名称；None 时由 Server 从 URI 末段生成
+    :param description: 备注说明
+    :param metadata: 用户自定义元数据
+    :param tags: 标签名列表，如 ["best", "ready-for-eval"]
+    :return: 平台分配的 checkpoint cuid
+    """
+    body = helper.strip_none(
+        {
+            "experimentId": experiment_id,
+            "uri": uri,
+            "step": step,
+            "name": name,
+            "description": description,
+            "metadata": metadata,
+            "tags": tags,
+        }
+    )
+    try:
+        # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
+        resp = client.post(f"/checkpoint/{username}/{project}/create", body, retries=0)
+        return resp.data["cuid"]
+    except ApiError as e:
+        console.warning(f"swanlab.checkpoint() failed to register checkpoint: {e}")
+        return ""

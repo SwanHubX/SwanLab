@@ -834,6 +834,46 @@ def save(
     """
     ...
 
+def checkpoint(
+    uri: str,
+    *,
+    run_id: Optional[str] = None,
+    step: Optional[int] = None,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+    metadata: Optional[dict] = None,
+    tags: Optional[List[str]] = None,
+    username: Optional[str] = None,
+    project: Optional[str] = None,
+) -> str:
+    """Register a checkpoint with the SwanLab platform.
+
+    Records the URI of a checkpoint (local path, S3, Hugging Face Hub URL, etc.)
+    along with metadata about the training state at that point.
+
+    :param uri: Path or URI pointing to the checkpoint. Any scheme is accepted
+        (local path, ``s3://``, ``hf://``, etc.). The platform stores this value
+        as-is without accessing or validating the target.
+    :param run_id: Source experiment run ID (cuid). Defaults to the current active
+        run when one exists. Required if no run is active.
+    :param step: Training step at which the checkpoint was saved. Defaults to the
+        current global step of the active run. Pass ``None`` explicitly to leave
+        the step unset in the platform.
+    :param name: Human-readable name for the checkpoint. If omitted, the platform
+        derives one from the last segment of ``uri``.
+    :param description: Optional free-text note.
+    :param metadata: Optional dict of arbitrary key/value pairs (e.g. optimizer
+        settings, learning rate) stored alongside the checkpoint record.
+    :param tags: Optional list of tag names, e.g. ``["best", "ready-for-eval"]``.
+    :param username: Username of the project owner. Auto-resolved from the active
+        run when one exists. Required if no run is active.
+    :param project: Project name. Auto-resolved from the active run when one exists.
+        Required if no run is active.
+    :return: The platform-assigned checkpoint ``cuid``, or an empty string when
+        registration is skipped (e.g. in non-online mode without an active run).
+    """
+    ...
+
 # ── sync patches ────────────────────────────────────────────────────────────────
 
 def sync_wandb(

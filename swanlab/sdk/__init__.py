@@ -8,6 +8,7 @@
 from swanlab.sdk.internal.run.components.config import config
 
 from .cmd import utils as cmd_utils
+from .cmd.checkpoint import checkpoint
 from .cmd.init import init
 from .cmd.login import login, login_cli
 from .cmd.merge_callbacks import merge_callbacks
@@ -52,6 +53,7 @@ __all__ = [
     # cmd
     "init",
     "finish",
+    "checkpoint",
     "login",
     "login_cli",
     "log",
